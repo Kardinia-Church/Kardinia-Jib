@@ -83,7 +83,7 @@ void joystickDebug() {
 }
 
 float speedPotDivisor() {
-    return (float)analogRead(SPEED_POT_PIN) / SPEED_POT_MAX;
+    return map((float)analogRead(SPEED_POT_PIN) / SPEED_POT_MAX, 0, 0.4, 0.0, 1.0);
 }
 
 //Output the current X value as a percentage
