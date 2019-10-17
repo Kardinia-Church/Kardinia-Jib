@@ -9,16 +9,10 @@
 #define SOFTWARE_VERSION_MAJOR 2
 #define SOFTWARE_VERSION_MINOR 0
 #define DEBUG_LED 13
-#define IGNORE_HOME 0
-
 
 //Left pot = A0
 //Right pot = A1
 //Buttons 22 ->
-
-//Joy x = A5
-//Joy y = A6
-//Joy z = A7
 
 //Begin setup
 void setup() {
