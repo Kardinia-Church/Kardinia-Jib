@@ -4,8 +4,7 @@
 **/
 
 #include <Arduino.h>
-#include "joystick.h"
-#include "head.h"
+#include "settings.h"
 
 #define SOFTWARE_VERSION_MAJOR 2
 #define SOFTWARE_VERSION_MINOR 0
@@ -32,19 +31,37 @@ void setup() {
     Serial.println("[SETUP] Start");
     pinMode(DEBUG_LED, OUTPUT);
     digitalWrite(13, HIGH);
-    joystickSetup();
-    headSetup();
+
+    //Check if the EEPROM has a valid start of memory if not clear it
+    Serial.print("[SETUP] Check memory... ");
+    if(EEPROM.read(0) != MEMORY_LEAD_0 || EEPROM.read(1) != MEMORY_LEAD_1 || EEPROM.read(2) != MEMORY_LEAD_2 || EEPROM.read(3) != MEMORY_LEAD_3) {
+      Serial.println("Not set. Setting up memory");
+      for (int i = 0 ; i < EEPROM.length() ; i++) {
+        EEPROM.write(i, 255);
+      }
+      EEPROM.write(0, MEMORY_LEAD_0);
+      EEPROM.write(1, MEMORY_LEAD_1);
+      EEPROM.write(2, MEMORY_LEAD_2);
+      EEPROM.write(3, MEMORY_LEAD_3);
+    }
+    else {Serial.println("Complete");}
+
+    //Read the parameters in memory and set them
+    Serial.println("[SETUP] Read settings from memory");
+    rightJoyStick.readSettingsFromMemory();
+
+
+
     Serial.println("[SETUP] Complete");
-    pinMode(A0, INPUT);
 }
 
 //Main loop
 void loop() {
     blinkDebugLed();
     //joystickDebug();
-    headLoop();
-    moveX(joystickXPercentage());
-    moveY(joystickYPercentage());
+    //headLoop();
+    //moveX(joystickXPercentage());
+    //moveY(joystickYPercentage());
 
 }
 

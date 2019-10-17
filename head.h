@@ -8,24 +8,7 @@
 
 #include <Arduino.h>
 #include <AccelStepper.h>
-
-#define DEFAULT_ACCELERATION 10000
-#define ACCEL_POT_PIN A0
-#define ACCEL_POT_MAX 1023
-
-#define X_DIR_PIN 2
-#define X_STEP_PIN 3
-#define X_LIMIT_PIN 50
-#define X_INVERT 1
-#define X_MAX_SPEED 1400
-#define X_MAX_POSITION 6000
-
-#define Y_DIR_PIN 4
-#define Y_STEP_PIN 5
-#define Y_LIMIT_PIN 52
-#define Y_INVERT 1
-#define Y_MAX_SPEED 600
-#define Y_MAX_POSITION 1000
+#include "settings.h"
 
 AccelStepper xStepper(AccelStepper::DRIVER, X_STEP_PIN, X_DIR_PIN);
 AccelStepper yStepper(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIR_PIN);
@@ -43,7 +26,6 @@ void headSetup() {
         yStepper.run();
     }
 }
-
 
 float getAcceleration() {
     float accel = ((float)analogRead(ACCEL_POT_PIN) / ACCEL_POT_MAX) * 100;
