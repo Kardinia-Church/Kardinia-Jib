@@ -44,6 +44,9 @@ void setup() {
     Serial.println("[SETUP] Read settings from memory");
     rightJoyStick.readSettingsFromMemory();
 
+    //Begin homing of the head
+    head.home();
+
 
 
     Serial.println("[SETUP] Complete");
@@ -52,11 +55,8 @@ void setup() {
 //Main loop
 void loop() {
     blinkDebugLed();
-    //joystickDebug();
-    //headLoop();
-    //moveX(joystickXPercentage());
-    //moveY(joystickYPercentage());
-
+    head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y));
+    head.run();
 }
 
 //Heartbeat

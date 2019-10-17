@@ -13,7 +13,7 @@
 #include "settings.h"
 
 class JoyStick {
-    private:
+    public:
     enum ValueType {
         Pin,
         Center,
@@ -25,8 +25,10 @@ class JoyStick {
         Y,
         Z
     };
+    private:
     int _axisSettings[3][4];
-    int _memoryStartAddress;
+    int _memoryStartAddress = 1;
+    int _totalMemoryAddressAllocation = 0;
     const int _deadzone = 10;
 
     //Get the center value of a axis. Returns the center value
@@ -154,15 +156,15 @@ class JoyStick {
 
     //Read the settings from memory XYZ[min, max, center]
     boolean readSettingsFromMemory() {
-        if(_memoryStartAddress == -1 || _memoryStartAddress + 9 > EEPROM.length()) {
+        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAddressAllocation > EEPROM.length()) {
             Serial.println("[ERROR] Could not read joystick memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
             //If all the values are set to 255 then set the defaults
             int amountOfUnsetData = 0;
-            for(int i = _memoryStartAddress; i < _memoryStartAddress + 9; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
-            if(amountOfUnsetData == 9) {
+            for(int i = _memoryStartAddress; i < _memoryStartAddress + _totalMemoryAddressAllocation; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
+            if(amountOfUnsetData >= _totalMemoryAddressAllocation / 2) {
                 //Data is not set default them
                 Serial.println("[WARN] Joystick settings are not set. Setting defaults");
                 setSettingsToMemory();
@@ -191,7 +193,7 @@ class JoyStick {
 
     //Read the settings from memory XYZ[min, max, center]
     boolean setSettingsToMemory() {
-        if(_memoryStartAddress == -1 || _memoryStartAddress + 9 > EEPROM.length()) {
+        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAddressAllocation > EEPROM.length()) {
             Serial.println("[ERROR] Could not read joystick memory cause the start address was not set or is outside of useable memory");
             return false;
         }
