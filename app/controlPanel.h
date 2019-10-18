@@ -175,12 +175,15 @@ class ControlPanel {
 
         //Calibrate
         void calibrate() {
-            while(Serial.available() == 1){
-                digitalWrite(DEBUG_LED, 1);
-                delay(100);
-                digitalWrite(DEBUG_LED, 0);
-                delay(100);
-            }
+        rightLCD.showError("Connect PC", "Please connect", "serial to calibrate");
+        while(Serial.available() == 1){
+            digitalWrite(DEBUG_LED, 1);
+            delay(100);
+            digitalWrite(DEBUG_LED, 0);
+            delay(100);
+        }
+
+        rightLCD.showError("Calibrating", "Follow messages on", "serial to calibrate");
 
             Serial.println("[CAL] Calibration started for control panel");
             Serial.println("[CAL] The left pot will be calibrated first");

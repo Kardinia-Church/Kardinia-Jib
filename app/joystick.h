@@ -105,12 +105,15 @@ class JoyStick {
 
     //Calibrate the joystick
     void calibrate() {
+        rightLCD.showError("Connect PC", "Please connect", "serial to calibrate");
         while(Serial.available() == 1){
             digitalWrite(DEBUG_LED, 1);
             delay(100);
             digitalWrite(DEBUG_LED, 0);
             delay(100);
         }
+
+        rightLCD.showError("Calibrating", "Follow messages on", "serial to calibrate");
 
         int values[3][3];
         Serial.println("[CAL] Calibration started for joystick.");

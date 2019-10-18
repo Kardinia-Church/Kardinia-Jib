@@ -1,10 +1,6 @@
 /**
     Main head handler
     Responsible for handling movement in the head
-
-
-    TODO:
-    Readd global speed adjustments
 **/
 
 #ifndef HEAD_HANDLER
@@ -370,6 +366,7 @@ class Head {
 
     //Calibrate the axis'
     void calibrate(int potPin) {
+        rightLCD.showError("Connect PC", "Please connect", "serial to calibrate");
         while(Serial.available() == 1){
             digitalWrite(DEBUG_LED, 1);
             delay(100);
@@ -377,6 +374,7 @@ class Head {
             delay(100);
         }
 
+        rightLCD.showError("Calibrating", "Follow messages on", "serial to calibrate");
         Serial.println("[CAL] Starting calibration of both X and Y stepper axis");
         _steppers[StepperAxis::X]->calibate(potPin);
         _steppers[StepperAxis::Y]->calibate(potPin);

@@ -22,6 +22,9 @@ void setup() {
     Serial.println("[SETUP] Start");
     pinMode(DEBUG_LED, OUTPUT);
     digitalWrite(13, HIGH);
+    leftLCD.initalize();
+    rightLCD.initalize();
+    leftLCD.showStartup(String("Version: ") + SOFTWARE_VERSION_MAJOR + String(".") + SOFTWARE_VERSION_MINOR + String("\n(") + __DATE__ + String(")"));
 
     //Check if the EEPROM has a valid start of memory if not clear it
     Serial.print("[SETUP] Check memory... ");
@@ -40,6 +43,7 @@ void setup() {
       Serial.println("[ERROR] Critical error: failed to read memory from one or more objects");
       Serial.println("Process cannot continue.\n\nEEPROM has been reset please disconnect power and recalibate the system");
       resetMemory();
+      leftLCD.showError("Invalid MEM", "Please reset and", "recalibate via serial");
       while(true){
         digitalWrite(DEBUG_LED, HIGH);
         delay(100);
@@ -51,31 +55,39 @@ void setup() {
     //If the joystick is not calibrated calibrate it
     if(!rightJoyStick.checkSettings()) {
       Serial.println("[ERROR] The right joystick has invalid settings and will need to be recalibrated. Starting calibration utility...");
+      leftLCD.showError("Calibration ER", "Please connect", "serial and calibrate");
       rightJoyStick.calibrate();
     }
 
     //If the control panel is not calibrated calibrate it
     if(!controlPanel.checkSettings()) {
       Serial.println("[ERROR] Control panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
+      leftLCD.showError("Calibration ER", "Please connect", "serial and calibrate");
       controlPanel.calibrate();
     }
 
     //Check if the read settings were correct if not they will need to be calibrated
     if(!head.checkSettings()) {
       Serial.println("[ERROR] Head has invalid settings and will need to be recalibrated. Starting calibration utility...");
+      leftLCD.showError("Calibration ER", "Please connect", "serial and calibrate");
       head.calibrate(A1);
     }
 
     //Begin homing of the head
-    head.home();
+    //head.home();
     Serial.println("[SETUP] Complete");
+    leftLCD.clear();
+    rightLCD.clear();
 }
 
 //Main loop
 void loop() {
     blinkDebugLed();
     head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
-    head.run();
+    if(!head.run()) {
+      leftLCD.showValue("Acceleration", (String)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
+      rightLCD.showValue("Speed", (String)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
+    }
 }
 
 //Heartbeat

@@ -27,6 +27,12 @@
 #define HEAD_MEM_ADDR CONTROLPANEL_MEM_ADDR + CONTROLPANEL_MEM_ALLOC
 #define END_OF_MEMORY HEAD_MEM_ADDR + HEAD_MEM_ALLOC
 
+#include "lcd.h"
+
+//LCD Settings
+LCD leftLCD(0x3C);
+LCD rightLCD(0x3D);
+
 #include "joystick.h"
 #include "head.h"
 #include "controlPanel.h"
