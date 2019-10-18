@@ -9,7 +9,7 @@
 #include <EEPROMex.h>
 
 #define SOFTWARE_VERSION_MAJOR 2
-#define SOFTWARE_VERSION_MINOR 1
+#define SOFTWARE_VERSION_MINOR 2
 
 //Begin setup
 void setup() {
@@ -85,7 +85,7 @@ void setup() {
 void loop() {
     blinkDebugLed();
     head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
-    if(!head.run() && !rightJoyStick.isActive()) {
+    if(!head.run() && !rightJoyStick.isActive() || millis() % 100 == 0) {
       leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
       rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
     }
