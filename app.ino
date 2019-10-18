@@ -69,12 +69,13 @@ void setup() {
     //Begin homing of the head
     head.home();
     Serial.println("[SETUP] Complete");
+    rightJoyStick.calibrate();
 }
 
 //Main loop
 void loop() {
     blinkDebugLed();
-    head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Left), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
+    head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
     head.run();
 }
 

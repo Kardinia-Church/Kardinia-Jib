@@ -39,8 +39,8 @@ ControlPanel controlPanel(22, A0, A1, CONTROLPANEL_MEM_ADDR);
 
 //Head Settings
 //Stepper(AccelStepper stepper(int stepPin, int directionPin), int limitPin, boolean invert, int maxSpeed, int defaultAcceleration, int invertLimit=0) {
-Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 2000, 2000, 1);
-Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 800, 4000, 1);
+Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 2000, 3000, 1);
+Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 800, 6000, 1);
 Head head(xStepper, yStepper, HEAD_MEM_ADDR);
 
 #endif

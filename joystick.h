@@ -29,7 +29,7 @@ class JoyStick {
     int _axisSettings[3][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
     int _memoryStartAddress = 1;
     int _totalMemoryAllocation = JOY_MEM_ALLOC;
-    const int _deadzone = 10;
+    const int _deadzone = 20;
 
     public:
     //Get a axis position as a raw value

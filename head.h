@@ -1,6 +1,10 @@
 /**
     Main head handler
     Responsible for handling movement in the head
+
+
+    TODO:
+    Readd global speed adjustments
 **/
 
 #ifndef HEAD_HANDLER
@@ -10,6 +14,7 @@
 #include <AccelStepper.h>
 #include <EEPROMex.h>
 #include "settings.h"
+
 
 //The stepper object
 class Stepper {
@@ -158,28 +163,35 @@ class Stepper {
     }
 
     //Move the stepper in a given direction at speed. Value is a float between -100.0% -> 100.0%. Acceleration is the acceleration again in percentage
-    void move(float value, float acceleration=-1) {
-        if(acceleration == -1){acceleration = 100;}
+    long aimedStopPosition = 0;
+    void move(float value, float globalSpeed=50.0, float acceleration=50.0) {
         //Set the speed
         if(value != 0) {
-            if(!(_stepper.distanceToGo() != 0 && abs(value) < abs((_stepper.speed() / _maxSpeed) * 100))) {
-                _stepper.setMaxSpeed(abs(_maxSpeed * value/100.0));
-            }
-            
-            _stepper.setAcceleration(_defaultAcceleration * acceleration/100.0);
+            _stepper.setAcceleration(_defaultAcceleration * (acceleration/50.0));
+            _stepper.setMaxSpeed(abs(_maxSpeed * value/100.0));
+
+            Serial.println(_stepper.speed());
+
+            // if(!(_stepper.distanceToGo() != 0 && abs(value) < abs((_stepper.speed() / _maxSpeed) * 100))) {
+            //     _stepper.setMaxSpeed(abs(_maxSpeed * (value + (globalSpeed - 50)/100.0)));
+            // }
         }
 
+        Serial.println(value);
+
         //Set the direction 
-        if(value < 0) {
-            _stepper.move(-_maxPosition);
+        if(value < -1.0) {
+            _stepper.moveTo(-_maxPosition);
+            aimedStopPosition = 0;
         }
-        else if(value > 0){
-            _stepper.move(_maxPosition);
+        else if(value > 1.0){
+            _stepper.moveTo(_maxPosition);
+            aimedStopPosition = 0;
         }
         else {
-            if(_stepper.distanceToGo() != 0) {
-                _stepper.setMaxSpeed(_stepper.speed());
+            if(_stepper.targetPosition() != aimedStopPosition) {
                 _stepper.stop();
+                aimedStopPosition = _stepper.targetPosition();
             }
         }
     }
@@ -316,14 +328,15 @@ class Stepper {
 };
 
 class Head {
-    private:
-    Stepper *_steppers[2];
-    int _memoryStartAddr;
+    public:    
     enum StepperAxis {
         X,
         Y
     };
 
+    private:
+    Stepper *_steppers[2];
+    int _memoryStartAddr;
     public:
     //Constructor
     Head(Stepper &xStepper,  Stepper &yStepper, int memoryStartAddr) {
@@ -400,14 +413,14 @@ class Head {
     }
 
     //Move a axis with speed and acceleration. Speed is between -100% - 100% (backward, forward) and acceleration is 0% - 100%
-    void move(StepperAxis axis, float speed, float acceleration) {
-        _steppers[axis]->move(speed, acceleration);
+    void move(StepperAxis axis, float speed, float globalSpeed=50.0, float acceleration=50.0) {
+        _steppers[axis]->move(speed, globalSpeed, acceleration);
     }
 
-    //Move X and Y axis with speed. If no acceleration is defined it will default
-    void moveXY(float speedX, float speedY, float accelerationX=-1, float accelerationY=-1) {
-        _steppers[StepperAxis::X]->move(speedX, accelerationX);
-        _steppers[StepperAxis::Y]->move(speedY, accelerationY);
+    //Move X and Y axis with speed. Speed divsor sets the global speed higher a % faster the speed. If no acceleration is defined it will default
+    void moveXY(float speedX, float speedY, float globalSpeed=50.0, float acceleration=50.0) {
+        _steppers[StepperAxis::X]->move(speedX, globalSpeed, acceleration);
+        _steppers[StepperAxis::Y]->move(speedY, globalSpeed, acceleration);
     }
 
     //The main loop. Returns true if a stepper is moving
