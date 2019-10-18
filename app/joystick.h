@@ -234,6 +234,14 @@ class JoyStick {
         Serial.println("");
     }
 
+    //If one of a axis is not at 0 returns true
+    boolean isActive() {
+        if(getPercentage(Axis::X) != 0.0){return true;}
+        if(getPercentage(Axis::Y) != 0.0){return true;}
+        if(getPercentage(Axis::Z) != 0.0){return true;}
+        return false;
+    }
+
     //Constructor with default settings to set if EEPROM values were not set
     JoyStick(int xPin, int yPin, int zPin, int memoryStartAddress=-1) {
         _axisSettings[Axis::X][ValueType::Pin] = xPin;

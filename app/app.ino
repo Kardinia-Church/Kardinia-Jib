@@ -20,6 +20,7 @@ void setup() {
     Serial.println("---------------------------------------");
     Serial.println("");
     Serial.println("[SETUP] Start");
+
     pinMode(DEBUG_LED, OUTPUT);
     digitalWrite(13, HIGH);
     leftLCD.initalize();
@@ -74,7 +75,7 @@ void setup() {
     }
 
     //Begin homing of the head
-    //head.home();
+    head.home();
     Serial.println("[SETUP] Complete");
     leftLCD.clear();
     rightLCD.clear();
@@ -84,9 +85,9 @@ void setup() {
 void loop() {
     blinkDebugLed();
     head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
-    if(!head.run()) {
-      leftLCD.showValue("Acceleration", (String)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
-      rightLCD.showValue("Speed", (String)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
+    if(!head.run() && !rightJoyStick.isActive()) {
+      leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
+      rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
     }
 }
 

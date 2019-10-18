@@ -74,14 +74,20 @@ class LCD {
     }
 
     //Show a value
+    String _previousValue = "";
+    String _previousTitle = "";
     void showValue(String title, String value) {
+      if(_previousTitle != title || _previousValue != value) {      
         _LCD.clear();
-        _LCD.setCursor((LCD_WIDTH - title.length()) / 2, 5);
+        _LCD.setCursor(0, 0);
         _LCD.setFontSize(FONT_SIZE_XLARGE);
         _LCD.println(title);
-        _LCD.setCursor(0, 5);
+        _LCD.setCursor(0, 3);
         _LCD.setFontSize(FONT_SIZE_LARGE);
         _LCD.println(value);
+        _previousTitle = title;
+        _previousValue = value;
+      }
     }
 };
 

@@ -2,5 +2,5 @@
     "board": "arduino:avr:mega",
     "configuration": "cpu=atmega2560",
     "port": "COM11",
-    "sketch": "app.ino"
+    "sketch": "app\\app.ino"
 }
