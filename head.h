@@ -168,16 +168,9 @@ class Stepper {
         //Set the speed
         if(value != 0) {
             _stepper.setAcceleration(_defaultAcceleration * (acceleration/50.0));
-            _stepper.setMaxSpeed(abs(_maxSpeed * value/100.0));
-
-            Serial.println(_stepper.speed());
-
-            // if(!(_stepper.distanceToGo() != 0 && abs(value) < abs((_stepper.speed() / _maxSpeed) * 100))) {
-            //     _stepper.setMaxSpeed(abs(_maxSpeed * (value + (globalSpeed - 50)/100.0)));
-            // }
+            float speedDiv = abs(((value / 100.0) * 100) * globalSpeed/50.0);
+           _stepper.setMaxSpeed(_maxSpeed * (speedDiv/100.0));
         }
-
-        Serial.println(value);
 
         //Set the direction 
         if(value < -1.0) {

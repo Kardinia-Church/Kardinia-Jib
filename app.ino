@@ -69,7 +69,6 @@ void setup() {
     //Begin homing of the head
     head.home();
     Serial.println("[SETUP] Complete");
-    rightJoyStick.calibrate();
 }
 
 //Main loop
