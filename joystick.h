@@ -9,7 +9,7 @@
 #define JOYSTICK_HANDLER
 
 #include <Arduino.h>
-#include <EEPROM.h>
+#include <EEPROMex.h>
 #include "settings.h"
 
 class JoyStick {
@@ -26,33 +26,10 @@ class JoyStick {
         Z
     };
     private:
-    int _axisSettings[3][4];
+    int _axisSettings[3][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
     int _memoryStartAddress = 1;
-    int _totalMemoryAddressAllocation = 0;
+    int _totalMemoryAllocation = JOY_MEM_ALLOC;
     const int _deadzone = 10;
-
-    //Get the center value of a axis. Returns the center value
-    int calibateAxisCenter(Axis axis) {
-        int centerValue = 0;
-        for(int i = 0; i < 10; i++) {
-            centerValue += analogRead(_axisSettings[axis][ValueType::Pin]);
-            delay(100);
-        }
-        return centerValue / 10;
-    }
-
-    //Get the min max values of a axis. Returns array [min, max]
-    int *calibateAxisMinMax(Axis axis) {
-        int values[2] = {0, 0};
-        long timeout = millis() + 10000;
-        while(true) {
-            if(millis() > timeout){break;}
-            int read = analogRead(_axisSettings[axis][ValueType::Pin]);
-            if(read < values[0]) {values[0] = read;}
-            if(read < values[1]) {values[1] = read;}
-        }
-        return values;
-    }
 
     public:
     //Get a axis position as a raw value
@@ -103,44 +80,67 @@ class JoyStick {
         Serial.println(";");
     }
 
-    //Set the axis values
-    void setAxisValues(Axis axis, int pin, int center, int minValue, int maxValue) {
-        _axisSettings[axis][ValueType::Pin] = pin;
-        pinMode(pin, INPUT);
-        _axisSettings[axis][ValueType::Center] = center;
-        _axisSettings[axis][ValueType::MinValue] = minValue;
-        _axisSettings[axis][ValueType::MaxValue] = maxValue;
+    //Get the center value of a axis. Returns the center value
+    int calibateAxisCenter(Axis axis) {
+        int centerValue = 0;
+        for(int i = 0; i < 10; i++) {
+            centerValue += analogRead(_axisSettings[axis][ValueType::Pin]);
+            delay(100);
+        }
+        return centerValue / 10;
+    }
+
+    //Get the min max values of a axis. Returns array [min, max]
+    void calibateAxisMinMax(Axis axis, int &min, int &max) {
+        min = 10000;
+        max = 0;
+        long timeout = millis() + 5000;
+        while(true) {
+            if(millis() > timeout){break;}
+            int read = analogRead(_axisSettings[axis][ValueType::Pin]);
+            if(read < min) {min = read;}
+            if(read > max) {max = read;}
+        }
     }
 
     //Calibrate the joystick
-    boolean calibrate() {
-        int values[3][3];
+    void calibrate() {
+        while(Serial.available() == 1){
+            digitalWrite(DEBUG_LED, 1);
+            delay(100);
+            digitalWrite(DEBUG_LED, 0);
+            delay(100);
+        }
 
+        int values[3][3];
         Serial.println("[CAL] Calibration started for joystick.");
 
         Serial.println("[CAL] We will calibrate the axis in the following order: X=0, Y=1, Z=2");
-        for(int i = Axis::X; i != Axis::Z; i++) {
-            Serial.println("[CAL] Calibration start for axis: " + i);
+        for(int i = Axis::X; i <= Axis::Z; i++) {
+            Serial.println("[CAL] Calibration start for axis: " + (String)i);
             //Center
-            Serial.println("[CAL] Please let the axis sit at its center point");
-            delay(1000);
-            Serial.println("[CAL] Begin calibation of center point");
+            Serial.println("[CAL] Please let the axis sit at its center point. Will start in 5 seconds");
+            delay(5000);
+            Serial.print("[CAL] Begin calibation of center point..");
             values[i][0] = calibateAxisCenter((Axis)i);
+            Serial.println(" Done");
             //Min max
-            Serial.println("[CAL] Please move the axis from its min point to its max point");
-            delay(1000);
-            Serial.println("[CAL] Begin calibation of min max");
-            int *minMaxValues = calibateAxisMinMax((Axis)i);
-            values[i][1] = minMaxValues[0];
-            values[i][2] = minMaxValues[1];
-            Serial.println("[CAL] Completed calibration of axis " + i);
+            Serial.println("[CAL] Please move the axis from its min point to its max point. Will start in 5 seconds");
+            delay(5000);
+            Serial.println("[CAL] Begin calibation of min max..");
+            int min = 0;
+            int max = 0;
+            calibateAxisMinMax((Axis)i, min, max);
+            values[i][1] = min;
+            values[i][2] = max;
+            Serial.println("[CAL] Completed calibration of axis " + (String)i);
         }
 
-        Serial.println("[CAL] - Calibration complete. Values read:");
-        Serial.println("X: Center=" + (String)values[Axis::X][0] + "Min=" + (String)values[Axis::X][1] + "Max=" + (String)values[Axis::X][2]);
-        Serial.println("Y: Center=" + (String)values[Axis::Y][0] + "Min=" + (String)values[Axis::Y][1] + "Max=" + (String)values[Axis::Y][2]);
-        Serial.println("Z: Center=" + (String)values[Axis::Z][0] + "Min=" + (String)values[Axis::Z][1] + "Max=" + (String)values[Axis::Z][2]);
-        Serial.println("[CAL] - Setting calibation data to memory");
+        Serial.println("[CAL] Calibration complete. Values read:");
+        Serial.println("[CAL] X: Center=" + (String)values[Axis::X][0] + "Min=" + (String)values[Axis::X][1] + "Max=" + (String)values[Axis::X][2]);
+        Serial.println("[CAL] Y: Center=" + (String)values[Axis::Y][0] + "Min=" + (String)values[Axis::Y][1] + "Max=" + (String)values[Axis::Y][2]);
+        Serial.println("[CAL] Z: Center=" + (String)values[Axis::Z][0] + "Min=" + (String)values[Axis::Z][1] + "Max=" + (String)values[Axis::Z][2]);
+        Serial.println("[CAL] Setting calibation data to memory");
         _axisSettings[Axis::X][ValueType::Center] = values[Axis::X][0];
         _axisSettings[Axis::X][ValueType::MinValue] = values[Axis::X][1];
         _axisSettings[Axis::X][ValueType::MaxValue] = values[Axis::X][2];
@@ -156,72 +156,89 @@ class JoyStick {
 
     //Read the settings from memory XYZ[min, max, center]
     boolean readSettingsFromMemory() {
-        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAddressAllocation > EEPROM.length()) {
+        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
             Serial.println("[ERROR] Could not read joystick memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
             //If all the values are set to 255 then set the defaults
             int amountOfUnsetData = 0;
-            for(int i = _memoryStartAddress; i < _memoryStartAddress + _totalMemoryAddressAllocation; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
-            if(amountOfUnsetData >= _totalMemoryAddressAllocation / 2) {
+            for(int i = _memoryStartAddress; i < _memoryStartAddress + _totalMemoryAllocation; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
+            if(amountOfUnsetData == _totalMemoryAllocation) {
                 //Data is not set default them
                 Serial.println("[WARN] Joystick settings are not set. Setting defaults");
                 setSettingsToMemory();
+                return true;
             }
             else {
-                //Read the data from memory       
-                int currentAddress = _memoryStartAddress;
-                Serial.print("[INFO] Reading joystick settings from memory... ");
-                Serial.print("X@" + (String)currentAddress + " , ");
-                _axisSettings[Axis::X][ValueType::MinValue] = EEPROM.read(currentAddress++);
-                _axisSettings[Axis::X][ValueType::MaxValue] = EEPROM.read(currentAddress++);
-                _axisSettings[Axis::X][ValueType::Center] = EEPROM.read(currentAddress++);
-                Serial.print("Y@" + (String)currentAddress + " , ");
-                _axisSettings[Axis::Y][ValueType::MinValue] = EEPROM.read(currentAddress++);
-                _axisSettings[Axis::Y][ValueType::MaxValue] = EEPROM.read(currentAddress++);
-                _axisSettings[Axis::Y][ValueType::Center] = EEPROM.read(currentAddress++);
-                Serial.print("Z@" + (String)currentAddress + " , ");
-                _axisSettings[Axis::Z][ValueType::MinValue] = EEPROM.read(currentAddress++);
-                _axisSettings[Axis::Z][ValueType::MaxValue] = EEPROM.read(currentAddress++);
-                _axisSettings[Axis::Z][ValueType::Center] = EEPROM.read(currentAddress++);
-                Serial.println(" Done");
+                _axisSettings[Axis::X][ValueType::MinValue] = EEPROM.readInt(_memoryStartAddress);
+                _axisSettings[Axis::X][ValueType::MaxValue] = EEPROM.readInt(_memoryStartAddress + 2);
+                _axisSettings[Axis::X][ValueType::Center] = EEPROM.readInt(_memoryStartAddress + 4);
+
+                _axisSettings[Axis::Y][ValueType::MinValue] = EEPROM.readInt(_memoryStartAddress + 6);
+                _axisSettings[Axis::Y][ValueType::MaxValue] = EEPROM.readInt(_memoryStartAddress + 8);
+                _axisSettings[Axis::Y][ValueType::Center] = EEPROM.readInt(_memoryStartAddress + 10);
+
+                _axisSettings[Axis::Z][ValueType::MinValue] = EEPROM.readInt(_memoryStartAddress + 12);
+                _axisSettings[Axis::Z][ValueType::MaxValue] = EEPROM.readInt(_memoryStartAddress + 14);
+                _axisSettings[Axis::Z][ValueType::Center] = EEPROM.readInt(_memoryStartAddress + 16);
+                return true;
             }
-            return true;
         }
     }
 
-    //Read the settings from memory XYZ[min, max, center]
+    //Set the settings from memory
     boolean setSettingsToMemory() {
-        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAddressAllocation > EEPROM.length()) {
-            Serial.println("[ERROR] Could not read joystick memory cause the start address was not set or is outside of useable memory");
+        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
+            Serial.println("[ERROR] Could not set joystick memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
-            int currentAddress = _memoryStartAddress;
-            Serial.print("[INFO] Set joystick settings to memory... ");
-            Serial.print("X@" + (String)currentAddress + " , ");
-            EEPROM.update(currentAddress++, _axisSettings[Axis::X][ValueType::MinValue]);
-            EEPROM.update(currentAddress++, _axisSettings[Axis::X][ValueType::MaxValue]);
-            EEPROM.update(currentAddress++, _axisSettings[Axis::X][ValueType::Center]);
-            Serial.print("Y@" + (String)currentAddress + " , ");
-            EEPROM.update(currentAddress++, _axisSettings[Axis::Y][ValueType::MinValue]);
-            EEPROM.update(currentAddress++, _axisSettings[Axis::Y][ValueType::MaxValue]);
-            EEPROM.update(currentAddress++, _axisSettings[Axis::Y][ValueType::Center]);
-            Serial.print("Z@" + (String)currentAddress + " , ");
-            EEPROM.update(currentAddress++, _axisSettings[Axis::Z][ValueType::MinValue]);
-            EEPROM.update(currentAddress++, _axisSettings[Axis::Z][ValueType::MaxValue]);
-            EEPROM.update(currentAddress++, _axisSettings[Axis::Z][ValueType::Center]);
+            Serial.print("[INFO] Set joystick to memory..");
+
+            Serial.print("X@" + (String)_memoryStartAddress + " , ");
+            EEPROM.writeInt(_memoryStartAddress, _axisSettings[Axis::X][ValueType::MinValue]);
+            EEPROM.writeInt(_memoryStartAddress + 2, _axisSettings[Axis::X][ValueType::MaxValue]);
+            EEPROM.writeInt(_memoryStartAddress + 4, _axisSettings[Axis::X][ValueType::Center]);
+
+            Serial.print("Y@" + (String)(_memoryStartAddress + 6) + " , ");
+            EEPROM.writeInt(_memoryStartAddress + 6, _axisSettings[Axis::Y][ValueType::MinValue]);
+            EEPROM.writeInt(_memoryStartAddress + 8, _axisSettings[Axis::Y][ValueType::MaxValue]);
+            EEPROM.writeInt(_memoryStartAddress + 10, _axisSettings[Axis::Y][ValueType::Center]);
+
+            Serial.print("Z@" + (String)(_memoryStartAddress + 12));
+            EEPROM.writeInt(_memoryStartAddress + 12, _axisSettings[Axis::Z][ValueType::MinValue]);
+            EEPROM.writeInt(_memoryStartAddress + 14, _axisSettings[Axis::Z][ValueType::MaxValue]);
+            EEPROM.writeInt(_memoryStartAddress + 16, _axisSettings[Axis::Z][ValueType::Center]);
             Serial.println(" Done");
             return true;
-        }   
+        }  
+    }
+
+    //Check that the settings are valid
+    boolean checkSettings() {
+        if(_axisSettings[Axis::X][ValueType::MinValue] == 0 && _axisSettings[Axis::X][ValueType::Center] == 0 && _axisSettings[Axis::X][ValueType::MaxValue] == 0){return false;}
+        if(_axisSettings[Axis::Y][ValueType::MinValue] == 0 && _axisSettings[Axis::Y][ValueType::Center] == 0 && _axisSettings[Axis::Y][ValueType::MaxValue] == 0){return false;}
+        if(_axisSettings[Axis::Z][ValueType::MinValue] == 0 && _axisSettings[Axis::Z][ValueType::Center] == 0 && _axisSettings[Axis::Z][ValueType::MaxValue] == 0){return false;}
+        return true;
+    }
+
+    //Print out the set settings
+    void printSettings() {
+        Serial.print("X[Min, Max, Center]=" + (String)_axisSettings[Axis::X][ValueType::MinValue] + "," + (String)_axisSettings[Axis::X][ValueType::MaxValue] + "," + (String)_axisSettings[Axis::X][ValueType::Center] + "; ");
+        Serial.print("Y[Min, Max, Center]=" + (String)_axisSettings[Axis::Y][ValueType::MinValue] + "," + (String)_axisSettings[Axis::Y][ValueType::MaxValue] + "," + (String)_axisSettings[Axis::Y][ValueType::Center] + "; ");
+        Serial.print("Z[Min, Max, Center]=" + (String)_axisSettings[Axis::Z][ValueType::MinValue] + "," + (String)_axisSettings[Axis::Z][ValueType::MaxValue] + "," + (String)_axisSettings[Axis::Z][ValueType::Center] + "; ");
+        Serial.println("");
     }
 
     //Constructor with default settings to set if EEPROM values were not set
-    JoyStick(int xPin, int yPin, int zPin, int xCenter, int yCenter, int zCenter, int xMinValue, int yMinValue, int zMinValue, int xMaxValue, int yMaxValue, int zMaxValue, int memoryStartAddress=-1) {
-        setAxisValues(Axis::X, xPin, xCenter, xMinValue, xMaxValue);
-        setAxisValues(Axis::Y, yPin, yCenter, yMinValue, yMaxValue);
-        setAxisValues(Axis::Z, zPin, zCenter, zMinValue, zMaxValue);
+    JoyStick(int xPin, int yPin, int zPin, int memoryStartAddress=-1) {
+        _axisSettings[Axis::X][ValueType::Pin] = xPin;
+        _axisSettings[Axis::Y][ValueType::Pin] = yPin;
+        _axisSettings[Axis::Z][ValueType::Pin] = zPin;
+        pinMode(xPin, INPUT);
+        pinMode(yPin, INPUT);
+        pinMode(zPin, INPUT);
         _memoryStartAddress = memoryStartAddress;
     }
 };

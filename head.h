@@ -8,6 +8,7 @@
 
 #include <Arduino.h>
 #include <AccelStepper.h>
+#include <EEPROMex.h>
 #include "settings.h"
 
 //The stepper object
@@ -15,13 +16,13 @@ class Stepper {
     private:
     AccelStepper _stepper;
     int _limitPin;
-    int _maxPosition;
-    int _homePosition;
+    long _maxPosition = 0;
+    long _homePosition = 0;
     int _maxSpeed;
     int _defaultAcceleration;
     int _invertLimit;
     int _memoryStartAddress = -1;
-    const int _totalMemoryAllocation = 2;
+    const int _totalMemoryAllocation = STEPPER_MEM_ALLOC;
     public:
     enum LimitType {
         Min,
@@ -39,18 +40,17 @@ class Stepper {
         Stopped,
         AtEndLimit
     };
-    Stepper(AccelStepper stepper, int limitPin, boolean invert, int maxPosition, int homePosition, int maxSpeed, int defaultAcceleration, int invertLimit=0) {
+    Stepper(AccelStepper stepper, int limitPin, boolean invert, int maxSpeed, int defaultAcceleration, int invertLimit=0) {
         _stepper = stepper;
         _limitPin = limitPin;
-        _maxPosition = maxPosition;
-        _homePosition = homePosition;
         _maxSpeed = maxSpeed;
         _defaultAcceleration = defaultAcceleration;
+        _invertLimit = invertLimit;
 
         _stepper.setMaxSpeed(maxSpeed);
         _stepper.setAcceleration(defaultAcceleration);
         _stepper.setPinsInverted(invert, false, true);
-        pinMode(limitPin, INPUT);
+        pinMode(limitPin, INPUT_PULLUP);
     }
 
     //Set where this steppers settings start in the EEPROM
@@ -60,17 +60,16 @@ class Stepper {
 
     //Set the current settings to memory
     boolean setSettingsToMemory() {
-        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > EEPROM.length()) {
-            Serial.println("[ERROR] Could not read axis memory cause the start address was not set or is outside of useable memory");
+        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
+            Serial.println("[ERROR] Could not set stepper axis memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
-            int currentAddress = _memoryStartAddress;
-            Serial.print("[INFO] Set axis settings to memory... ");
-            Serial.print("maxPosition@" + (String)currentAddress + " , ");
-            EEPROM.update(currentAddress++, _maxPosition);
-            Serial.print("homePosition@" + (String)currentAddress + " , ");
-            EEPROM.update(currentAddress++, _homePosition);
+            Serial.print("[INFO] Set stepper axis to memory..");
+            Serial.print("maxPosition@" + (String)_memoryStartAddress + " , ");
+            EEPROM.writeLong(_memoryStartAddress, _maxPosition);
+            Serial.print("homePosition@" + (String)(_memoryStartAddress + 4));
+            EEPROM.writeLong(_memoryStartAddress + 4, _homePosition);
             Serial.println(" Done");
             return true;
         }
@@ -78,30 +77,25 @@ class Stepper {
 
     //Read the current settings from memory
     boolean readSettingsFromMemory() {
-        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > EEPROM.length()) {
-            Serial.println("[ERROR] Could not read axis memory cause the start address was not set or is outside of useable memory");
+        if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
+            Serial.println("[ERROR] Could not read stepper axis memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
             //If all the values are set to 255 then set the defaults
             int amountOfUnsetData = 0;
             for(int i = _memoryStartAddress; i < _memoryStartAddress + _totalMemoryAllocation; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
-            if(amountOfUnsetData >= _totalMemoryAllocation / 2) {
+            if(amountOfUnsetData == _totalMemoryAllocation) {
                 //Data is not set default them
-                Serial.println("[WARN] Axis settings are not set. Setting defaults");
+                Serial.println("[WARN] Stepper axis settings are not set. Setting defaults");
                 setSettingsToMemory();
+                return true;
             }
             else {
-                //Read the data from memory       
-                int currentAddress = _memoryStartAddress;
-                Serial.print("[INFO] Reading axis settings from memory... ");
-                Serial.print("maxPosition@" + (String)currentAddress + " , ");
-                _maxPosition = EEPROM.read(currentAddress++);
-                Serial.print("homePosition@" + (String)currentAddress + " , ");
-                _homePosition = EEPROM.read(currentAddress++);
-                Serial.println(" Done");
+                _maxPosition = EEPROM.readLong(_memoryStartAddress);
+                _homePosition = EEPROM.readLong(_memoryStartAddress + 4);
+                return true;
             }
-            return true;
         }
     }
 
@@ -110,20 +104,32 @@ class Stepper {
         switch(type) {
             case LimitType::Min: {
                 if(digitalRead(_limitPin) == _invertLimit) {
+                    _stepper.move(1);
+                    _stepper.setCurrentPosition(0);
                     return true;
                 }
                 break;
             }
             case LimitType::Max: {
                 if(_stepper.currentPosition() >= _maxPosition) {
+                    _stepper.move(-1);
+                    _stepper.setCurrentPosition(_maxPosition);
                     return true;
                 }
                 break;
             }
             case LimitType::Any: {
-                if(digitalRead(_limitPin) == _invertLimit || _stepper.currentPosition() >= _maxPosition) {
+               if(digitalRead(_limitPin) == _invertLimit) {
+                    _stepper.move(1);
+                    _stepper.setCurrentPosition(0);
                     return true;
                 }
+                else if(_stepper.currentPosition() >= _maxPosition) {
+                    _stepper.move(-1);
+                    _stepper.setCurrentPosition(_maxPosition);
+                    return true;
+                }
+                break;
             }
         }
 
@@ -183,22 +189,26 @@ class Stepper {
         Serial.println("[CAL] Calibration for axis begin.");
         Serial.println("[CAL] Please wait moving axis to min point to begin calibation");
         while(true) {
+            //Move to min limit
+            _maxPosition = 100000;
+            _maxSpeed = 500;
+            _defaultAcceleration = 1000000;
+            _stepper.moveTo(-_maxPosition + 100);
+            _stepper.setMaxSpeed(_maxSpeed / 2);
+            _stepper.setAcceleration(_defaultAcceleration);
+            _stepper.run();
+
             if(_stepper.distanceToGo() == 0) {
                 //Failed to get to position
                 Serial.println("[CAL] Failed to reach minimum position. Calibration aborted");
                 return;
             }
             else if(isAtLimit(LimitType::Min)) {
+                Serial.println("[CAL] At end limit");
                 _stepper.stop();
                 _stepper.setCurrentPosition(0);
                 break;
             }
-
-            //Move to min limit
-            _stepper.moveTo(-_maxPosition * 2);
-            _stepper.setMaxSpeed(_maxSpeed / 2);
-            _stepper.setAcceleration(_defaultAcceleration);
-            _stepper.run();
         }
 
         Serial.println("[CAL] Ready to start calibation!");
@@ -207,11 +217,13 @@ class Stepper {
         int potValue = analogRead(potPin);
         int minPotValue = 0;
         int maxPotValue = 1023;
-        Serial.println("[CAL] The calibation will use the right most speed knob. We need to calibrate it first please set it to 0%");
+        Serial.println("[CAL] The calibation will use the right most speed knob. We need to calibrate it first please set it to center and it will start calibrating in 5 seconds");
+        delay(5000);
+        Serial.println("[CAL] Move the pot to the 0%");
         while(true) {
             if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
                 Serial.println("[CAL] Getting the value");
-                delay(1000);
+                delay(4000);
                 minPotValue = analogRead(potPin);
                 break;
             }
@@ -221,7 +233,7 @@ class Stepper {
         while(true) {
             if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
                 Serial.println("[CAL] Getting the value");
-                delay(1000);
+                delay(4000);
                 maxPotValue = analogRead(potPin);
                 break;
             }
@@ -229,22 +241,24 @@ class Stepper {
 
         Serial.println("[CAL] The axis will start moving at a speed set by the right speed knob. When the axis is at the desired position set the knob to 0% to set the value");
         while(true) {
-            float speed = analogRead(potPin) / (maxPotValue - minPotValue) * 100.0;
+            float speed = (float)analogRead(potPin) / (float)(maxPotValue - minPotValue);
 
             //If the pot is at 0% set the value
-            if(speed < 1.0) {
+            if(speed < 0.1) {
                 _stepper.stop();
                 break;
             }
             else {
                 //Move the axis at speed
-                move(speed);
+                _stepper.moveTo(_maxPosition);
+                _stepper.setMaxSpeed(_maxSpeed * speed);
                 _stepper.run();
             }   
         }
 
-        Serial.println("[CAL] The axis is now at the max position: " + _stepper.currentPosition());
+        Serial.println("[CAL] The axis is now at the max position: " + (String)_stepper.currentPosition());
         _maxPosition = _stepper.currentPosition();
+        _homePosition = _maxPosition / 2;
         Serial.println("[CAL] Storing values to EEPROM");
         setSettingsToMemory();
         Serial.println("[CAL] Done!");
@@ -253,8 +267,8 @@ class Stepper {
     //Home the stepper to the minumum value, will return true when at home position
     Stepper::HomeStatus home() {
         //Start the home proceedure if it hasn't started
-        if(_stepper.targetPosition() != -_maxPosition * 2 && _stepper.targetPosition() != _homePosition) {
-            _stepper.moveTo(-_maxPosition * 2);
+        if(_stepper.targetPosition() != -_maxPosition + 100 && _stepper.targetPosition() != _homePosition) {
+            _stepper.moveTo(-_maxPosition + 100);
         }
 
         if(_stepper.targetPosition() < 0) {
@@ -263,7 +277,7 @@ class Stepper {
                 //Check if we have failed to home
                 if(_stepper.distanceToGo() == 0){return HomeStatus::Failed;}
 
-                _stepper.setMaxSpeed(_maxSpeed / 2);
+                _stepper.setMaxSpeed(_maxSpeed);
                 _stepper.setAcceleration(_defaultAcceleration);
                 _stepper.run();
                 return HomeStatus::MovingToMin;
@@ -288,6 +302,17 @@ class Stepper {
             return HomeStatus::Complete;
         }
     }
+
+    //Check if the settings are valid.
+    boolean checkSettings() {
+        if((_homePosition == 0 && _maxPosition == 0) || (_homePosition > _maxPosition) || _homePosition < 0 || _maxPosition < 0) {return false;}
+        return true;
+    }
+
+    //Print out the settings
+    void printSettings() {
+        Serial.print("[homePosition, maxPosition]=" + String(_homePosition) + "," + String(_maxPosition));
+    }
 };
 
 class Head {
@@ -300,17 +325,62 @@ class Head {
     };
 
     public:
-    Head(Stepper xStepper,  Stepper yStepper, int memoryStartAddr) {
+    //Constructor
+    Head(Stepper &xStepper,  Stepper &yStepper, int memoryStartAddr) {
         _steppers[StepperAxis::X] = &xStepper;
         _steppers[StepperAxis::Y] = &yStepper;
         _memoryStartAddr = memoryStartAddr;
+        _steppers[StepperAxis::X]->setMemoryStartAddress(_memoryStartAddr);
+        _steppers[StepperAxis::Y]->setMemoryStartAddress(_memoryStartAddr + STEPPER_MEM_ALLOC);
+    }
+
+    //Read the settings from memory
+    boolean readSettingsFromMemory() {
+        if(_steppers[StepperAxis::X]->readSettingsFromMemory() && _steppers[StepperAxis::Y]->readSettingsFromMemory()) {
+            return true;
+        }
+        return false;
+    }
+
+    //Check if the settings are valid
+    boolean checkSettings() {
+        if(!_steppers[StepperAxis::X]->checkSettings() || !_steppers[StepperAxis::Y]->checkSettings()) {
+            return false;
+        }
+        return true;
+    }
+
+    //Print out the settings
+    void printSettings() {
+        Serial.print("X");
+        _steppers[StepperAxis::X]->printSettings();
+        Serial.print("\nY");
+        _steppers[StepperAxis::Y]->printSettings();
+    }
+
+    //Calibrate the axis'
+    void calibrate(int potPin) {
+        while(Serial.available() == 1){
+            digitalWrite(DEBUG_LED, 1);
+            delay(100);
+            digitalWrite(DEBUG_LED, 0);
+            delay(100);
+        }
+
+        Serial.println("[CAL] Starting calibration of both X and Y stepper axis");
+        _steppers[StepperAxis::X]->calibate(potPin);
+        _steppers[StepperAxis::Y]->calibate(potPin);
+        Serial.println("[CAL] Completed calibration. Rehoming");
+        home();
     }
 
     //Home the head
     Stepper::HomeStatus home() {
         Serial.print("[INFO] - Attempting to home");
+        int homeDot = 0;
         while(true) {
-            Serial.print(".");
+            homeDot++;
+            if(homeDot % 5000 == 0){Serial.print(".");}
 
             //If both steppers are complete we homed successfully!
             if(_steppers[StepperAxis::X]->home() == Stepper::HomeStatus::Complete && _steppers[StepperAxis::Y]->home() == Stepper::HomeStatus::Complete) {
