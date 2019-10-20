@@ -85,7 +85,7 @@ void setup() {
 void loop() {
     blinkDebugLed();
     head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
-    if(!head.run() && !rightJoyStick.isActive() || millis() % 100 == 0) {
+    if(!head.run() && !rightJoyStick.isActive()) {
       leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
       rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
     }
