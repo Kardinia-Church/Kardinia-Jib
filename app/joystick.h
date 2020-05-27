@@ -18,7 +18,8 @@ class JoyStick {
         Pin,
         Center,
         MinValue,
-        MaxValue
+        MaxValue,
+        Invert
     };
     enum Axis {
         X,
@@ -26,7 +27,7 @@ class JoyStick {
         Z
     };
     private:
-    int _axisSettings[3][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+    int _axisSettings[3][5] = {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}};
     int _memoryStartAddress = 1;
     int _totalMemoryAllocation = JOY_MEM_ALLOC;
     const int _deadzone = 20;
@@ -42,7 +43,13 @@ class JoyStick {
             val = val + _deadzone;
         }
         else {val = 0;}
-        return val;
+
+        if(_axisSettings[axis][ValueType::Invert] == 1) {
+          return -val;
+        }
+        else {
+          return val;
+        }
     }
 
     //Get the percentage of a axis
@@ -243,10 +250,13 @@ class JoyStick {
     }
 
     //Constructor with default settings to set if EEPROM values were not set
-    JoyStick(int xPin, int yPin, int zPin, int memoryStartAddress=-1) {
+    JoyStick(int xPin, int yPin, int zPin, bool invertX=false, bool invertY=false, bool invertZ=false, int memoryStartAddress=-1) {
         _axisSettings[Axis::X][ValueType::Pin] = xPin;
         _axisSettings[Axis::Y][ValueType::Pin] = yPin;
         _axisSettings[Axis::Z][ValueType::Pin] = zPin;
+        _axisSettings[Axis::X][ValueType::Invert] = invertX;
+        _axisSettings[Axis::Y][ValueType::Invert] = invertY;
+        _axisSettings[Axis::Z][ValueType::Invert] = invertZ;
         pinMode(xPin, INPUT);
         pinMode(yPin, INPUT);
         pinMode(zPin, INPUT);

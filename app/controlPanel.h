@@ -41,7 +41,7 @@ class ControlPanel {
         while(true) {
             if(analogRead(_potSettings[pot][PotValues::Pin]) >= potValue + 10 || analogRead(_potSettings[pot][PotValues::Pin]) <= potValue - 10) {
                 Serial.println("[CAL] Getting the value");
-                delay(1000);
+                delay(5000);
                 minPotValue = analogRead(_potSettings[pot][PotValues::Pin]);
                 break;
             }
@@ -51,7 +51,7 @@ class ControlPanel {
         while(true) {
             if(analogRead(_potSettings[pot][PotValues::Pin]) >= potValue + 10 || analogRead(_potSettings[pot][PotValues::Pin]) <= potValue - 10) {
                 Serial.println("[CAL] Getting the value");
-                delay(1000);
+                delay(5000);
                 maxPotValue = analogRead(_potSettings[pot][PotValues::Pin]);
                 break;
             }

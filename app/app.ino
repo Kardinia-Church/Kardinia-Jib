@@ -9,7 +9,7 @@
 #include <EEPROMex.h>
 
 #define SOFTWARE_VERSION_MAJOR 2
-#define SOFTWARE_VERSION_MINOR 2
+#define SOFTWARE_VERSION_MINOR 3
 
 //Begin setup
 void setup() {
@@ -20,6 +20,16 @@ void setup() {
     Serial.println("---------------------------------------");
     Serial.println("");
     Serial.println("[SETUP] Start");
+    Serial.println("Send serial to begin calibration!");
+    long timeout = millis();
+    bool calibrate = false;
+    while(timeout + 3000 > millis()) {
+      while (Serial.available()) {
+        calibrate = true;
+        break;
+      }
+    }
+    if(calibrate){resetMemory ();}
 
     pinMode(DEBUG_LED, OUTPUT);
     digitalWrite(13, HIGH);
