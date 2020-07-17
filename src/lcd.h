@@ -7,7 +7,7 @@
 #define LCD_HANDLER
 
 #include <Wire.h>
-#include <MicroLCD.h>
+#include "MicroLCD/MicroLCD.h"
 
 #define LCD_WIDTH 64
 #define LCD_HEIGHT 32
@@ -23,7 +23,7 @@ class LCD {
 
     //Flash a dot in the left top corner to reset the LCD (fixed a issue where the lcd would sometimes not start correctly)
     void reset() {
-        Serial.println("[INFO] Reset");
+        Serial.println(" Complete");
         _LCD.clear();
         _LCD.print(".");
         delay(100);
@@ -42,7 +42,7 @@ class LCD {
 
     //Setup the lcd
     void initalize() {
-        Serial.println("[INFO] Setup LCD At Addr: " + (String)_addr);
+        Serial.print("Setup LCD At Addr: " + (String)_addr);
         _LCD.begin(SSD1306_SWITCHCAPVCC,_addr);
         delay(1000);
         reset();
@@ -71,6 +71,19 @@ class LCD {
         _LCD.println(errorLine2);
         _LCD.setFontSize(FONT_SIZE_SMALL);
         _LCD.println(errorLine3);
+    }
+
+    //Show text
+    void showText(String line1="", String line2="", String line3="", String line4="") {
+        _LCD.clear();
+        _LCD.setFontSize(FONT_SIZE_MEDIUM);
+        _LCD.println(line1);
+        _LCD.setFontSize(FONT_SIZE_MEDIUM);
+        _LCD.println(line2);
+        _LCD.setFontSize(FONT_SIZE_SMALL);
+        _LCD.println(line3);
+        _LCD.setFontSize(FONT_SIZE_SMALL);
+        _LCD.println(line4);
     }
 
     //Show a value

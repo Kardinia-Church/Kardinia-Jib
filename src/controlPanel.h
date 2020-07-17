@@ -31,27 +31,34 @@ class ControlPanel {
     int _potSettings[2][3] = {{0, 0, 0}, {0, 0, 0}};
 
     //Calibrate a pot
-    void calibratePot(Pot pot) {
+    void calibratePot(Pot pot, LCD lcd, String currentPot = "") {
         int potValue = analogRead(_potSettings[pot][PotValues::Pin]);
         int minPotValue = 0;
         int maxPotValue = 1023;
-        Serial.println("[CAL] Move the pot to the center. Will start calibration in 5 seconds");
+        Serial.println("\n\nMove the pot to the center. Will start calibration in 5 seconds");
+        lcd.showText(currentPot, "", " Move to centre");
         delay(5000);
-        Serial.println("[CAL] Please set the POT to 0%");
+        Serial.println(" Please set the POT to 0%");
+        lcd.showText(currentPot, "", " Set to 0%");
         while(true) {
             if(analogRead(_potSettings[pot][PotValues::Pin]) >= potValue + 10 || analogRead(_potSettings[pot][PotValues::Pin]) <= potValue - 10) {
-                Serial.println("[CAL] Getting the value");
                 delay(5000);
+                Serial.println("  Getting the value");
+                lcd.showText(currentPot, "", " Got it!");
                 minPotValue = analogRead(_potSettings[pot][PotValues::Pin]);
+                delay(1000);
                 break;
             }
         }
-        Serial.println("[CAL] Next set the POT to 100%");
+        Serial.println(" Next set the POT to 100%");
+        lcd.showText(currentPot, "", " Move to 100%");
         potValue = analogRead(_potSettings[pot][PotValues::Pin]);
         while(true) {
             if(analogRead(_potSettings[pot][PotValues::Pin]) >= potValue + 10 || analogRead(_potSettings[pot][PotValues::Pin]) <= potValue - 10) {
-                Serial.println("[CAL] Getting the value");
                 delay(5000);
+                Serial.println("  Getting the value");
+                lcd.showText(currentPot, "", " Got it!");
+                delay(1000);
                 maxPotValue = analogRead(_potSettings[pot][PotValues::Pin]);
                 break;
             }
@@ -59,7 +66,8 @@ class ControlPanel {
 
         _potSettings[pot][PotValues::Min] = minPotValue;
         _potSettings[pot][PotValues::Max] = maxPotValue;
-        Serial.println("[CAL] Setting pot values min=" + (String)minPotValue + ", max=" + (String)maxPotValue);
+        Serial.println("Setting pot values min=" + (String)minPotValue + ", max=" + (String)maxPotValue);
+        lcd.showText(currentPot, "", " Complete");
         setSettingsToMemory();
     }
 
@@ -114,11 +122,11 @@ class ControlPanel {
         //Set the settings to memory
         boolean setSettingsToMemory() {
             if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
-                Serial.println("[ERROR] Could not set control panel memory cause the start address was not set or is outside of useable memory");
+                Serial.println("Could not set control panel memory cause the start address was not set or is outside of useable memory");
                 return false;
             }
             else {
-                Serial.print("[INFO] Set control panel to memory..");
+                Serial.print("Set control panel to memory..");
 
                 Serial.print("LeftPot@" + (String)_memoryStartAddress + " , ");
                 EEPROM.writeInt(_memoryStartAddress, _potSettings[Pot::Left][PotValues::Min]);
@@ -135,7 +143,7 @@ class ControlPanel {
         //Read the settings from memory
         boolean readSettingsFromMemory() {
             if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
-                Serial.println("[ERROR] Could not read control panel memory cause the start address was not set or is outside of useable memory");
+                Serial.println("Could not read control panel memory cause the start address was not set or is outside of useable memory");
                 return false;
             }
             else {
@@ -144,7 +152,7 @@ class ControlPanel {
                 for(int i = _memoryStartAddress; i < _memoryStartAddress + _totalMemoryAllocation; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
                 if(amountOfUnsetData == _totalMemoryAllocation) {
                     //Data is not set default them
-                    Serial.println("[WARN] Control panel settings are not set. Setting defaults");
+                    Serial.println("Control panel settings are not set. Setting defaults");
                     setSettingsToMemory();
                     return true;
                 }
@@ -174,23 +182,22 @@ class ControlPanel {
         }
 
         //Calibrate
-        void calibrate() {
-        rightLCD.showError("Connect PC", "Please connect", "serial to calibrate");
-        while(Serial.available() == 1){
-            digitalWrite(DEBUG_LED, 1);
-            delay(100);
-            digitalWrite(DEBUG_LED, 0);
-            delay(100);
-        }
-
-        rightLCD.showError("Calibrating", "Follow messages on", "serial to calibrate");
-
-            Serial.println("[CAL] Calibration started for control panel");
-            Serial.println("[CAL] The left pot will be calibrated first");
-            calibratePot(Pot::Left);
-            Serial.println("[CAL] Next the right pot will be calibrated");
-            calibratePot(Pot::Right);
-            Serial.println("[CAL] Completed");
+        void calibrate(LCD leftLCD, LCD rightLCD) {
+            rightLCD.showText("Calibration", "", "Follow left screen");
+            Serial.println(" Calibration started for control panel");
+            Serial.println(" \nThe left pot will be calibrated first");
+            leftLCD.showText("Get Ready!", "", "Left Pot");
+            delay(5000);
+            calibratePot(Pot::Left, leftLCD, "Left Pot");
+            delay(5000);
+            Serial.println(" \nNext the right pot will be calibrated");
+            leftLCD.showText("Get Ready!", "", "Right Pot");
+            delay(5000);
+            calibratePot(Pot::Right, leftLCD, "Right Pot");
+            delay(5000);
+            rightLCD.showText("Calibration", "", "Pots Complete");
+            leftLCD.showText("Calibration", "", "Pots Complete");
+            Serial.println(" Completed");
         }
 
 };

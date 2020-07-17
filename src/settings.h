@@ -34,8 +34,8 @@ LCD leftLCD(0x3C);
 LCD rightLCD(0x3D);
 
 #include "joystick.h"
-#include "head.h"
 #include "controlPanel.h"
+#include "head.h"
 
 //JoyStick Settings
 JoyStick rightJoyStick(A5, A6, A7, true, true, false, RIGHTJOY_MEM_ADDR);

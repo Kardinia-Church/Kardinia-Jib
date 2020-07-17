@@ -65,7 +65,7 @@ class JoyStick {
     void joystickDebug() {
         int value = 0;
         float percentage = 0.0;
-        Serial.print("[DEBUG][JOY] - Raw XYZ:");
+        Serial.print("Joystick Raw XYZ:");
         Serial.print(analogRead(_axisSettings[Axis::X][ValueType::Pin]));
         Serial.print(", ");
         Serial.print(analogRead(_axisSettings[Axis::Y][ValueType::Pin]));
@@ -111,46 +111,58 @@ class JoyStick {
     }
 
     //Calibrate the joystick
-    void calibrate() {
-        rightLCD.showError("Connect PC", "Please connect", "serial to calibrate");
-        while(Serial.available() == 1){
-            digitalWrite(DEBUG_LED, 1);
-            delay(100);
-            digitalWrite(DEBUG_LED, 0);
-            delay(100);
-        }
-
-        rightLCD.showError("Calibrating", "Follow messages on", "serial to calibrate");
+    void calibrate(LCD leftLCD, LCD rightLCD) {
+        leftLCD.showText("Joystick", "", "Get ready");
+        rightLCD.showText("Calibration", "Follow left screen");
+        delay(5000);
 
         int values[3][3];
-        Serial.println("[CAL] Calibration started for joystick.");
+        Serial.println("Calibration started for joystick.");
 
-        Serial.println("[CAL] We will calibrate the axis in the following order: X=0, Y=1, Z=2");
+        Serial.println("We will calibrate the axis in the following order: X=0, Y=1, Z=2");
+        leftLCD.showText("Get Ready!", "", "Order is X, Y, Z");
+        delay(5000);
         for(int i = Axis::X; i <= Axis::Z; i++) {
-            Serial.println("[CAL] Calibration start for axis: " + (String)i);
+            String axis = "";
+            switch(i) {
+                case Axis::X: {axis = "X"; break;}
+                case Axis::Y: {axis = "Y"; break;}
+                case Axis::Z: {axis = "Z"; break;}
+            }
+            Serial.println("Calibration start for axis: " + axis);
+
             //Center
-            Serial.println("[CAL] Please let the axis sit at its center point. Will start in 5 seconds");
+            Serial.println("Please let the axis sit at its center point. Will start in 5 seconds");
+            leftLCD.showText(axis + " Centre", "", "Let " + axis + " sit");
             delay(5000);
-            Serial.print("[CAL] Begin calibation of center point..");
+            Serial.print("Begin calibation of center point..");
             values[i][0] = calibateAxisCenter((Axis)i);
             Serial.println(" Done");
+            leftLCD.showText(axis + " Centre", "", "Got it!");
+            delay(1000);
+
             //Min max
-            Serial.println("[CAL] Please move the axis from its min point to its max point. Will start in 5 seconds");
+            Serial.println("Please move the axis from its min point to its max point. Will start in 5 seconds");
+            leftLCD.showText(axis + " Min-Max", "", "Move to min-max");
             delay(5000);
-            Serial.println("[CAL] Begin calibation of min max..");
+            Serial.println("Begin calibation of min max..");
             int min = 0;
             int max = 0;
             calibateAxisMinMax((Axis)i, min, max);
             values[i][1] = min;
             values[i][2] = max;
-            Serial.println("[CAL] Completed calibration of axis " + (String)i);
+            Serial.println("Completed calibration of axis " + (String)i);
+            leftLCD.showText(axis + " Min-Max", "", "Got it!");
+            delay(1000);
+            leftLCD.showText(axis + " Complete", "", "");
+            delay(5000);
         }
 
-        Serial.println("[CAL] Calibration complete. Values read:");
-        Serial.println("[CAL] X: Center=" + (String)values[Axis::X][0] + "Min=" + (String)values[Axis::X][1] + "Max=" + (String)values[Axis::X][2]);
-        Serial.println("[CAL] Y: Center=" + (String)values[Axis::Y][0] + "Min=" + (String)values[Axis::Y][1] + "Max=" + (String)values[Axis::Y][2]);
-        Serial.println("[CAL] Z: Center=" + (String)values[Axis::Z][0] + "Min=" + (String)values[Axis::Z][1] + "Max=" + (String)values[Axis::Z][2]);
-        Serial.println("[CAL] Setting calibation data to memory");
+        Serial.println("Calibration complete. Values read:");
+        Serial.println("X: Center=" + (String)values[Axis::X][0] + "Min=" + (String)values[Axis::X][1] + "Max=" + (String)values[Axis::X][2]);
+        Serial.println("Y: Center=" + (String)values[Axis::Y][0] + "Min=" + (String)values[Axis::Y][1] + "Max=" + (String)values[Axis::Y][2]);
+        Serial.println("Z: Center=" + (String)values[Axis::Z][0] + "Min=" + (String)values[Axis::Z][1] + "Max=" + (String)values[Axis::Z][2]);
+        Serial.println("Setting calibation data to memory");
         _axisSettings[Axis::X][ValueType::Center] = values[Axis::X][0];
         _axisSettings[Axis::X][ValueType::MinValue] = values[Axis::X][1];
         _axisSettings[Axis::X][ValueType::MaxValue] = values[Axis::X][2];
@@ -161,13 +173,17 @@ class JoyStick {
         _axisSettings[Axis::Z][ValueType::MinValue] = values[Axis::Z][1];
         _axisSettings[Axis::Z][ValueType::MaxValue] = values[Axis::Z][2];
         setSettingsToMemory();
-        Serial.println("[CAL] - Calibration complete!");
+
+        rightLCD.showText("Calibration", "", "Joystick Complete");
+        leftLCD.showText("Calibration", "", "Joystick Complete");
+        Serial.println("Calibration complete!");
+        delay(5000);
     }
 
     //Read the settings from memory XYZ[min, max, center]
     boolean readSettingsFromMemory() {
         if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
-            Serial.println("[ERROR] Could not read joystick memory cause the start address was not set or is outside of useable memory");
+            Serial.println("Could not read joystick memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
@@ -176,7 +192,7 @@ class JoyStick {
             for(int i = _memoryStartAddress; i < _memoryStartAddress + _totalMemoryAllocation; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
             if(amountOfUnsetData == _totalMemoryAllocation) {
                 //Data is not set default them
-                Serial.println("[WARN] Joystick settings are not set. Setting defaults");
+                Serial.println("Joystick settings are not set. Setting defaults");
                 setSettingsToMemory();
                 return true;
             }
@@ -200,11 +216,11 @@ class JoyStick {
     //Set the settings from memory
     boolean setSettingsToMemory() {
         if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
-            Serial.println("[ERROR] Could not set joystick memory cause the start address was not set or is outside of useable memory");
+            Serial.println("Could not set joystick memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
-            Serial.print("[INFO] Set joystick to memory..");
+            Serial.print("Set joystick to memory..");
 
             Serial.print("X@" + (String)_memoryStartAddress + " , ");
             EEPROM.writeInt(_memoryStartAddress, _axisSettings[Axis::X][ValueType::MinValue]);

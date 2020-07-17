@@ -7,7 +7,7 @@
 #define HEAD_HANDLER
 
 #include <Arduino.h>
-#include <AccelStepper.h>
+#include "AccelStepper/src/AccelStepper.h"
 #include <EEPROMex.h>
 #include "settings.h"
 
@@ -62,11 +62,11 @@ class Stepper {
     //Set the current settings to memory
     boolean setSettingsToMemory() {
         if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
-            Serial.println("[ERROR] Could not set stepper axis memory cause the start address was not set or is outside of useable memory");
+            Serial.println("Could not set stepper axis memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
-            Serial.print("[INFO] Set stepper axis to memory..");
+            Serial.print("Set stepper axis to memory..");
             Serial.print("maxPosition@" + (String)_memoryStartAddress + " , ");
             EEPROM.writeLong(_memoryStartAddress, _maxPosition);
             Serial.print("homePosition@" + (String)(_memoryStartAddress + 4));
@@ -79,7 +79,7 @@ class Stepper {
     //Read the current settings from memory
     boolean readSettingsFromMemory() {
         if(_memoryStartAddress == -1 || _memoryStartAddress + _totalMemoryAllocation > END_OF_MEMORY) {
-            Serial.println("[ERROR] Could not read stepper axis memory cause the start address was not set or is outside of useable memory");
+            Serial.println("Could not read stepper axis memory cause the start address was not set or is outside of useable memory");
             return false;
         }
         else {
@@ -88,7 +88,7 @@ class Stepper {
             for(int i = _memoryStartAddress; i < _memoryStartAddress + _totalMemoryAllocation; i++) {if(EEPROM.read(i) == 255){amountOfUnsetData++;}}
             if(amountOfUnsetData == _totalMemoryAllocation) {
                 //Data is not set default them
-                Serial.println("[WARN] Stepper axis settings are not set. Setting defaults");
+                Serial.println("Stepper axis settings are not set. Setting defaults");
                 setSettingsToMemory();
                 return true;
             }
@@ -190,9 +190,13 @@ class Stepper {
     }
 
     //Calibrate the axis
-    void calibate(int potPin) {
-        Serial.println("[CAL] Calibration for axis begin.");
-        Serial.println("[CAL] Please wait moving axis to min point to begin calibation");
+    void calibate(ControlPanel controlPanel, String axis = "") {
+        Serial.println("Calibration for axis begin.");
+        Serial.println("Please wait moving axis to min point to begin calibation");
+
+        leftLCD.showText(axis + " Calibration", "", "Get ready");
+        rightLCD.showText("Calibration", "", "Follow left screen");
+
         while(true) {
             //Move to min limit
             _maxPosition = 100000;
@@ -205,48 +209,52 @@ class Stepper {
 
             if(_stepper.distanceToGo() == 0) {
                 //Failed to get to position
-                Serial.println("[CAL] Failed to reach minimum position. Calibration aborted");
+                Serial.println("Failed to reach minimum position. Calibration aborted");
+                leftLCD.showText("Failed", "", "Failed to home");
                 return;
             }
             else if(isAtLimit(LimitType::Min)) {
-                Serial.println("[CAL] At end limit");
+                Serial.println("At end limit");
                 _stepper.stop();
                 _stepper.setCurrentPosition(0);
                 break;
             }
         }
 
-        Serial.println("[CAL] Ready to start calibation!");
-
-        //Calibate the speed pot first
-        int potValue = analogRead(potPin);
-        int minPotValue = 0;
-        int maxPotValue = 1023;
-        Serial.println("[CAL] The calibation will use the right most speed knob. We need to calibrate it first please set it to center and it will start calibrating in 5 seconds");
+        Serial.println("Ready to start calibation!");
+        leftLCD.showText("Get Ready!", "", "Right pot controls speed");
         delay(5000);
-        Serial.println("[CAL] Move the pot to the 0%");
-        while(true) {
-            if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
-                Serial.println("[CAL] Getting the value");
-                delay(4000);
-                minPotValue = analogRead(potPin);
-                break;
-            }
-        }
-        Serial.println("[CAL] Next set the speed knob to 100%");
-        potValue = analogRead(potPin);
-        while(true) {
-            if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
-                Serial.println("[CAL] Getting the value");
-                delay(4000);
-                maxPotValue = analogRead(potPin);
-                break;
-            }
-        }
 
-        Serial.println("[CAL] The axis will start moving at a speed set by the right speed knob. When the axis is at the desired position set the knob to 0% to set the value");
+        // //Calibate the speed pot first
+        // int potValue = analogRead(potPin);
+        // int minPotValue = 0;
+        // int maxPotValue = 1023;
+        // Serial.println("The calibation will use the right most speed knob. We need to calibrate it first please set it to center and it will start calibrating in 5 seconds");
+        // delay(5000);
+        // Serial.println("Move the pot to the 0%");
+        // while(true) {
+        //     if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
+        //         Serial.println("Getting the value");
+        //         delay(4000);
+        //         minPotValue = analogRead(potPin);
+        //         break;
+        //     }
+        // }
+        // Serial.println("Next set the speed knob to 100%");
+        // potValue = analogRead(potPin);
+        // while(true) {
+        //     if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
+        //         Serial.println("Getting the value");
+        //         delay(4000);
+        //         maxPotValue = analogRead(potPin);
+        //         break;
+        //     }
+        // }
+
+        Serial.println("The axis will start moving at a speed set by the right speed knob. When the axis is at the desired position set the knob to 0% to set the value");
+        leftLCD.showText(axis + " Max", "", "Slow to stop when at end");
         while(true) {
-            float speed = (float)analogRead(potPin) / (float)(maxPotValue - minPotValue);
+            float speed = controlPanel.getPotPercentage(ControlPanel::Pot::Right);//(float)analogRead(potPin) / (float)(maxPotValue - minPotValue);
 
             //If the pot is at 0% set the value
             if(speed < 0.1) {
@@ -261,12 +269,13 @@ class Stepper {
             }   
         }
 
-        Serial.println("[CAL] The axis is now at the max position: " + (String)_stepper.currentPosition());
+        leftLCD.showText(axis + " Max", "", "Got it!");
+        Serial.println("The axis is now at the max position: " + (String)_stepper.currentPosition());
         _maxPosition = _stepper.currentPosition();
         _homePosition = _maxPosition / 2;
-        Serial.println("[CAL] Storing values to EEPROM");
+        Serial.println("Storing values to EEPROM");
         setSettingsToMemory();
-        Serial.println("[CAL] Done!");
+        Serial.println("Done!");
     }
 
     //Home the stepper to the minumum value, will return true when at home position
@@ -365,26 +374,24 @@ class Head {
     }
 
     //Calibrate the axis'
-    void calibrate(int potPin) {
-        rightLCD.showError("Connect PC", "Please connect", "serial to calibrate");
-        while(Serial.available() == 1){
-            digitalWrite(DEBUG_LED, 1);
-            delay(100);
-            digitalWrite(DEBUG_LED, 0);
-            delay(100);
-        }
-
-        rightLCD.showError("Calibrating", "Follow messages on", "serial to calibrate");
-        Serial.println("[CAL] Starting calibration of both X and Y stepper axis");
-        _steppers[StepperAxis::X]->calibate(potPin);
-        _steppers[StepperAxis::Y]->calibate(potPin);
-        Serial.println("[CAL] Completed calibration. Rehoming");
+    void calibrate(ControlPanel controlPanel) {
+        Serial.println("Starting calibration of both X and Y stepper axis");
+        leftLCD.showText("Home", "", "Get ready");
+        rightLCD.showText("Calibration", "", "Follow left screen");
+        delay(5000);
+        _steppers[StepperAxis::X]->calibate(controlPanel, "X");
+        delay(5000);
+        _steppers[StepperAxis::Y]->calibate(controlPanel, "Y");
+        delay(5000);
+        Serial.println("Completed calibration. Rehoming");
+        rightLCD.showText("Calibration", "", "Head Complete");
+        leftLCD.showText("Calibration", "", "Head Complete");
         home();
     }
 
     //Home the head
     Stepper::HomeStatus home() {
-        Serial.print("[INFO] - Attempting to home");
+        Serial.print("Attempting to home");
         int homeDot = 0;
         while(true) {
             homeDot++;
