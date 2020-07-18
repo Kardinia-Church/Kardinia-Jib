@@ -8,7 +8,7 @@
 #include <EEPROMex.h>
 
 #define SOFTWARE_VERSION_MAJOR 2
-#define SOFTWARE_VERSION_MINOR 3
+#define SOFTWARE_VERSION_MINOR 4
 
 //Heartbeat
 unsigned long heartBeat = 0;
@@ -17,6 +17,12 @@ void blinkDebugLed() {
     heartBeat = millis();
     digitalWrite(DEBUG_LED, !digitalRead(DEBUG_LED));
   }
+}
+
+//Show important information on the LCDs
+void showDebugLCD() {
+    leftLCD.showText((String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left), (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right), (String)analogRead(A0), (String)analogRead(A1));
+    rightLCD.showText((String)rightJoyStick.getPercentage(JoyStick::Axis::X), (String)rightJoyStick.getPercentage(JoyStick::Axis::Y), (String)rightJoyStick.getPercentage(JoyStick::Axis::Z));
 }
 
 //Reset the memory pool to defaults
@@ -124,9 +130,16 @@ void setup() {
 //Main loop
 void loop() {
     blinkDebugLed();
+    //showDebugLCD();
+
     head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
+    
+    
+    
+    
+    
     if(!head.run() && !rightJoyStick.isActive()) {
-      leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
+      //leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
       rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
     }
 }

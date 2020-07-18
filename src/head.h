@@ -160,6 +160,7 @@ class Stepper {
 
     //Move the stepper in a given direction at speed. Value is a float between -100.0% -> 100.0%. Acceleration is the acceleration again in percentage
     long aimedStopPosition = 0;
+    float previousAcceleration = 0;
     void move(float value, float globalSpeed=50.0, float acceleration=50.0) {
         //Make sure the globa speed and acceleration cannot go below 0 as this causes issues
         if(globalSpeed < 0){globalSpeed = 0;}
@@ -167,9 +168,13 @@ class Stepper {
 
         //Set the speed
         if(value != 0) {
-            _stepper.setAcceleration(_defaultAcceleration * (acceleration/50.0));
+            float accel = _defaultAcceleration * (acceleration/50.0);
+            if(previousAcceleration != accel) {
+                _stepper.setAcceleration(accel);
+            }
             float speedDiv = abs(((value / 100.0) * 100) * globalSpeed/50.0);
-           _stepper.setMaxSpeed(_maxSpeed * (speedDiv/100.0));
+            //leftLCD.showText((String)speedDiv, (String)accel);
+            _stepper.setMaxSpeed(_maxSpeed * (speedDiv/100.0));
         }
 
         //Set the direction 
