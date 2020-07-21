@@ -46,17 +46,17 @@ void showDebugLCD() {
 
 //Reset the memory pool to defaults
 void resetMemory() {
-  for(int i = 0; i < END_OF_MEMORY; i++) {
-    EEPROM.write(i, 255);
-  }
+  // for(int i = 0; i < END_OF_MEMORY; i++) {
+  //   EEPROM.write(i, 255);
+  // }
 
-  //Write the lead and end of memory for check
-  EEPROM.write(0, MEMORY_LEAD_0);
-  EEPROM.write(1, MEMORY_LEAD_1);
-  EEPROM.write(2, MEMORY_LEAD_2);
-  EEPROM.write(3, MEMORY_LEAD_3);
-  EEPROM.write(END_OF_MEMORY, MEMORY_END_0);
-  EEPROM.write(END_OF_MEMORY + 1, MEMORY_END_1);
+  // //Write the lead and end of memory for check
+  // EEPROM.write(0, MEMORY_LEAD_0);
+  // EEPROM.write(1, MEMORY_LEAD_1);
+  // EEPROM.write(2, MEMORY_LEAD_2);
+  // EEPROM.write(3, MEMORY_LEAD_3);
+  // EEPROM.write(END_OF_MEMORY, MEMORY_END_0);
+  // EEPROM.write(END_OF_MEMORY + 1, MEMORY_END_1);
 }
 
 //Print the memory to the serial monitor for debug
@@ -122,7 +122,7 @@ void setup() {
       Serial.println("Critical error: failed to read memory from one or more objects");
       Serial.println("Process cannot continue.\n\nEEPROM has been reset please disconnect power and recalibate the system");
       resetMemory();
-      leftLCD.showError("Invalid MEM", "Please reset and", "recalibate via serial");
+      leftLCD.showError("Invalid MEM", "Please reset and", "recalibate");
       while(true){
         digitalWrite(DEBUG_LED, HIGH);
         delay(100);
@@ -180,7 +180,7 @@ void loop() {
     head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
 
     if(!head.run() && !rightJoyStick.isActive()) {
-      leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
-      rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
+      //leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
+      //rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
     }
 }

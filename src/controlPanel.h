@@ -103,12 +103,15 @@ class ControlPanel {
         Buttons isButtonsPressed() {
             for(int i = 0; i < TOTAL_ROWS; i++) {
                 for(int j = 0; j < TOTAL_COLS; j++) {
-                    _buttons.buttonStates[i][j] = digitalRead(_buttons.pins[i][j]);
+                    int val = 0;
+                    for(int k = 0; k < 20; k++) {
+                        val += digitalRead(_buttons.pins[i][j]);
+                    }
+                    _buttons.buttonStates[i][j] = val / 20;
                 }
             }
 
             return _buttons;
-
 
 
             // int buttonsDown[2][TOTAL_ROWS * TOTAL_COLS];

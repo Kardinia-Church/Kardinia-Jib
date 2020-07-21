@@ -58,7 +58,7 @@ class JoyStick {
         float val = ((float)getValue(axis)/divider) * 100.0;
         if(val < -100.0){val = -100.0;}
         if(val > 100.0) {val = 100.0;}
-        return val;
+        return val * 2;
     }
 
     //Output the joystick values to console

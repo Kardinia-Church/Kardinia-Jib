@@ -161,28 +161,28 @@ class Stepper {
     //Move the stepper in a given direction at speed. Value is a float between -100.0% -> 100.0%. Acceleration is the acceleration again in percentage
     long aimedStopPosition = 0;
     float previousAcceleration = 0;
-    void move(float value, float globalSpeed=50.0, float acceleration=50.0) {
+    void move(float speed, float globalSpeed=50.0, float acceleration=50.0) {
         //Make sure the globa speed and acceleration cannot go below 0 as this causes issues
-        if(globalSpeed < 0){globalSpeed = 0;}
-        if(acceleration < 0){acceleration = 0;}
+        // if(globalSpeed < 0){globalSpeed = 0;}
+        // if(acceleration < 0){acceleration = 0;}
+        float actualSpeed = ((speed / 100.0) * (globalSpeed / 100.0)) * 100.0;
 
         //Set the speed
-        if(value != 0) {
+        if(speed != 0) {
             float accel = _defaultAcceleration * (acceleration/50.0);
             if(previousAcceleration != accel) {
                 _stepper.setAcceleration(accel);
             }
-            float speedDiv = abs(((value / 100.0) * 100) * globalSpeed/50.0);
-            //leftLCD.showText((String)speedDiv, (String)accel);
+            float speedDiv = abs(((speed / 100.0) * 100) * globalSpeed/50.0);
             _stepper.setMaxSpeed(_maxSpeed * (speedDiv/100.0));
         }
 
         //Set the direction 
-        if(value < -1.0) {
+        if(speed < -1.0) {
             _stepper.moveTo(-_maxPosition);
             aimedStopPosition = 0;
         }
-        else if(value > 1.0){
+        else if(speed > 1.0){
             _stepper.moveTo(_maxPosition);
             aimedStopPosition = 0;
         }
@@ -232,32 +232,6 @@ class Stepper {
         leftLCD.showText("Get Ready!", "", "Right pot controls speed");
         delay(5000);
 
-        // //Calibate the speed pot first
-        // int potValue = analogRead(potPin);
-        // int minPotValue = 0;
-        // int maxPotValue = 1023;
-        // Serial.println("The calibation will use the right most speed knob. We need to calibrate it first please set it to center and it will start calibrating in 5 seconds");
-        // delay(5000);
-        // Serial.println("Move the pot to the 0%");
-        // while(true) {
-        //     if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
-        //         Serial.println("Getting the value");
-        //         delay(4000);
-        //         minPotValue = analogRead(potPin);
-        //         break;
-        //     }
-        // }
-        // Serial.println("Next set the speed knob to 100%");
-        // potValue = analogRead(potPin);
-        // while(true) {
-        //     if(analogRead(potPin) >= potValue + 100 || analogRead(potPin) <= potValue - 100) {
-        //         Serial.println("Getting the value");
-        //         delay(4000);
-        //         maxPotValue = analogRead(potPin);
-        //         break;
-        //     }
-        // }
-
         Serial.println("The axis will start moving at a speed set by the right speed knob. When the axis is at the desired position set the knob to 0% to set the value");
         leftLCD.showText(axis + " Max", "", "Slow to stop when at end");
         while(true) {
@@ -298,7 +272,7 @@ class Stepper {
                 //Check if we have failed to home
                 if(_stepper.distanceToGo() == 0){return HomeStatus::Failed;}
 
-                _stepper.setMaxSpeed(_maxSpeed);
+                _stepper.setMaxSpeed(_maxSpeed / 2);
                 _stepper.setAcceleration(_defaultAcceleration);
                 _stepper.run();
                 return HomeStatus::MovingToMin;
