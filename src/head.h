@@ -199,7 +199,7 @@ class Stepper {
         Serial.println("Calibration for axis begin.");
         Serial.println("Please wait moving axis to min point to begin calibation");
 
-        leftLCD.showText(axis + " Calibration", "", "Get ready");
+        leftLCD.showText(axis + " Cal", "", "Homing");
         rightLCD.showText("Calibration", "", "Follow left screen");
 
         while(true) {
@@ -227,6 +227,8 @@ class Stepper {
         }
 
         Serial.println("Ready to start calibation!");
+        leftLCD.showText("Get Ready!", "", "Set right pot to 50%");
+        delay(5000);
         leftLCD.showText("Get Ready!", "", "Right pot controls speed");
         delay(5000);
 
@@ -269,7 +271,7 @@ class Stepper {
             else {
                 //Move the axis at speed
                 _stepper.moveTo(_maxPosition);
-                _stepper.setMaxSpeed(_maxSpeed * speed);
+                _stepper.setMaxSpeed(500 * (speed/100));
                 _stepper.run();
             }   
         }
@@ -384,13 +386,13 @@ class Head {
         leftLCD.showText("Home", "", "Get ready");
         rightLCD.showText("Calibration", "", "Follow left screen");
         delay(5000);
-        _steppers[StepperAxis::X]->calibate(controlPanel, "X");
+        _steppers[StepperAxis::X]->calibate(controlPanel, "Pan");
         delay(5000);
-        _steppers[StepperAxis::Y]->calibate(controlPanel, "Y");
+        _steppers[StepperAxis::Y]->calibate(controlPanel, "Tilt");
         delay(5000);
         Serial.println("Completed calibration. Rehoming");
-        rightLCD.showText("Calibration", "", "Head Complete");
-        leftLCD.showText("Calibration", "", "Head Complete");
+        rightLCD.showText("Calibration", "", "Head Complete", "Testing home");
+        leftLCD.showText("Calibration", "", "Head Complete", "Testing home");
         home();
     }
 
