@@ -6,6 +6,8 @@
 #include "settings.h"
 
 #include <EEPROMex.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
 #define SOFTWARE_VERSION_MAJOR 2
 #define SOFTWARE_VERSION_MINOR 4
@@ -170,6 +172,9 @@ void setup() {
     Serial.println("Complete");
     leftLCD.clear();
     rightLCD.clear();
+    
+    OCR0A = 0xAF;
+    TIMSK0 |= _BV(OCIE0A);
 }
 
 //Main loop
@@ -178,9 +183,12 @@ void loop() {
     //showDebugLCD();
 
     head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
-
-    if(!head.run() && !rightJoyStick.isActive()) {
-      //leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
-      //rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
-    }
+    leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
+    rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
 }
+
+//Called constantly blocking all other functions
+SIGNAL(TIMER0_COMPA_vect) 
+{
+  head.run();
+} 

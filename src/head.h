@@ -11,7 +11,6 @@
 #include <EEPROMex.h>
 #include "settings.h"
 
-
 //The stepper object
 class Stepper {
     private:
@@ -162,29 +161,33 @@ class Stepper {
     long aimedStopPosition = 0;
     float previousAcceleration = 0;
     void move(float speed, float globalSpeed=50.0, float acceleration=50.0) {
-        //Make sure the globa speed and acceleration cannot go below 0 as this causes issues
-        // if(globalSpeed < 0){globalSpeed = 0;}
-        // if(acceleration < 0){acceleration = 0;}
         float actualSpeed = ((speed / 100.0) * (globalSpeed / 100.0)) * 100.0;
+        if(acceleration < 0){acceleration = 0;}
 
         //Set the speed
-        if(speed != 0) {
-            float accel = _defaultAcceleration * (acceleration/50.0);
-            if(previousAcceleration != accel) {
-                _stepper.setAcceleration(accel);
+        if(actualSpeed != 0) {
+            // float accel = _defaultAcceleration * (acceleration/50.0);
+            // if(previousAcceleration != accel) {
+            //     _stepper.setAcceleration(accel);
+            // }
+            //float speedDiv = abs(((speed / 100.0) * 100) * globalSpeed/50.0);
+            if(_stepper.maxSpeed() != actualSpeed) {
+                _stepper.setMaxSpeed(_maxSpeed * (abs(actualSpeed)/100.0));
             }
-            float speedDiv = abs(((speed / 100.0) * 100) * globalSpeed/50.0);
-            _stepper.setMaxSpeed(_maxSpeed * (speedDiv/100.0));
         }
 
         //Set the direction 
-        if(speed < -1.0) {
-            _stepper.moveTo(-_maxPosition);
-            aimedStopPosition = 0;
+        if(actualSpeed < -1.0) {
+            if(_stepper.distanceToGo() >= 0) {
+                _stepper.moveTo(-_maxPosition);
+                aimedStopPosition = 0;
+            }
         }
-        else if(speed > 1.0){
-            _stepper.moveTo(_maxPosition);
-            aimedStopPosition = 0;
+        else if(actualSpeed > 1.0){
+            if(_stepper.distanceToGo() <= 0) {
+                _stepper.moveTo(_maxPosition);
+                aimedStopPosition = 0;
+            }
         }
         else {
             if(_stepper.targetPosition() != aimedStopPosition) {
@@ -272,7 +275,7 @@ class Stepper {
                 //Check if we have failed to home
                 if(_stepper.distanceToGo() == 0){return HomeStatus::Failed;}
 
-                _stepper.setMaxSpeed(_maxSpeed / 2);
+                _stepper.setMaxSpeed(_maxSpeed / 4);
                 _stepper.setAcceleration(_defaultAcceleration);
                 _stepper.run();
                 return HomeStatus::MovingToMin;
@@ -280,7 +283,7 @@ class Stepper {
             else {
                 //Completed min head to home position
                 _stepper.setCurrentPosition(0);
-                _stepper.setMaxSpeed(_maxSpeed);
+                _stepper.setMaxSpeed(_maxSpeed / 2);
                 _stepper.setAcceleration(_defaultAcceleration);
                 _stepper.moveTo(_homePosition);
                 _stepper.run();
@@ -411,6 +414,7 @@ class Head {
         boolean isRunning = false;
         if(_steppers[StepperAxis::X]->run() == Stepper::Status::Moving){isRunning=true;}
         if(_steppers[StepperAxis::Y]->run() == Stepper::Status::Moving){isRunning=true;}
+        return isRunning;
     }
 };
 
