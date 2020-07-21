@@ -168,27 +168,40 @@ void setup() {
 
     //Begin homing of the head
     rightLCD.showText("Resetting", "Homing");
-    head.home();
+    //head.home();
     Serial.println("Complete");
     leftLCD.clear();
     rightLCD.clear();
     
-    OCR0A = 0xAF;
-    TIMSK0 |= _BV(OCIE0A);
+    // OCR0A = 0xAF;
+    // TIMSK0 |= _BV(OCIE0A);
 }
 
 //Main loop
+int hi = 0;
 void loop() {
     blinkDebugLed();
     //showDebugLCD();
 
-    head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
-    leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
-    rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
+    // head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
+    // leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
+    // rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
+
+    head.run();
+    if(!head.isMoving()){
+      if(hi == 0) {
+        head.moveToXY(0, 0);
+        hi = 1;
+      }
+      else {
+        head.moveToXY(5000, 300);
+        hi = 0;
+      }
+    }
 }
 
-//Called constantly blocking all other functions
-SIGNAL(TIMER0_COMPA_vect) 
-{
-  head.run();
-} 
+// //Called constantly blocking all other functions
+// SIGNAL(TIMER0_COMPA_vect) 
+// {
+//   head.run();
+// } 

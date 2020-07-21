@@ -197,6 +197,13 @@ class Stepper {
         }
     }
 
+    //Move to a specific location
+    void moveTo(int position, float speed = 100.0, float acceleration = 100.0) {
+        _stepper.setSpeed(_maxSpeed * (speed/100.0));
+        _stepper.setAcceleration(_defaultAcceleration * (acceleration/100.0));
+        _stepper.moveTo(position);
+    }
+
     //Calibrate the axis
     void calibate(ControlPanel controlPanel, String axis = "") {
         Serial.println("Calibration for axis begin.");
@@ -301,6 +308,11 @@ class Stepper {
         }
     }
 
+    //Is the stepper moving?
+    boolean isMoving() {
+        return _stepper.distanceToGo() != 0;
+    }
+
     //Check if the settings are valid.
     boolean checkSettings() {
         if((_homePosition == 0 && _maxPosition == 0) || (_homePosition > _maxPosition) || _homePosition < 0 || _maxPosition < 0) {return false;}
@@ -319,9 +331,9 @@ class Head {
         X,
         Y
     };
+    Stepper *_steppers[2];
 
     private:
-    Stepper *_steppers[2];
     int _memoryStartAddr;
     public:
     //Constructor
@@ -398,6 +410,11 @@ class Head {
         }
     }
 
+    //Is one of the axis' moving?
+    bool isMoving() {
+        return _steppers[StepperAxis::X]->isMoving() || _steppers[StepperAxis::Y]->isMoving();
+    }
+
     //Move a axis with speed and acceleration. Speed is between -100% - 100% (backward, forward) and acceleration is 0% - 100%
     void move(StepperAxis axis, float speed, float globalSpeed=50.0, float acceleration=50.0) {
         _steppers[axis]->move(speed, globalSpeed, acceleration);
@@ -407,6 +424,12 @@ class Head {
     void moveXY(float speedX, float speedY, float globalSpeed=50.0, float acceleration=50.0) {
         _steppers[StepperAxis::X]->move(speedX, globalSpeed, acceleration);
         _steppers[StepperAxis::Y]->move(speedY, globalSpeed, acceleration);
+    }
+
+    //Move to a specific location
+    void moveToXY(int x, int y, float speed = 100.0, float accleration = 100.0) {
+        _steppers[StepperAxis::X]->moveTo(x, speed, accleration);
+        _steppers[StepperAxis::Y]->moveTo(y, speed, accleration);
     }
 
     //The main loop. Returns true if a stepper is moving
