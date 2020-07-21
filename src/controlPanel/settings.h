@@ -35,7 +35,7 @@ LCD rightLCD(0x3D);
 
 #include "joystick.h"
 #include "controlPanel.h"
-#include "head.h"
+// #include "head.h"
 
 //JoyStick Settings
 JoyStick rightJoyStick(A5, A6, A7, true, true, false, RIGHTJOY_MEM_ADDR);
@@ -45,8 +45,8 @@ ControlPanel controlPanel(22, A0, A1, CONTROLPANEL_MEM_ADDR);
 
 //Head Settings
 //Stepper(AccelStepper stepper(int stepPin, int directionPin), int limitPin, boolean invert, int maxSpeed, int defaultAcceleration, int invertLimit=0) {
-Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 2000, 3000, 1);
-Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 800, 6000, 1);
-Head head(xStepper, yStepper, HEAD_MEM_ADDR);
+// Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 2000, 3000, 1);
+// Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 800, 6000, 1);
+// Head head(xStepper, yStepper, HEAD_MEM_ADDR);
 
 #endif
