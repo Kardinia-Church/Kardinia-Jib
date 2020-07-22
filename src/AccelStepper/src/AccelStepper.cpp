@@ -537,8 +537,8 @@ void AccelStepper::step8(long step)
 	    setOutputPins(0b1001);
             break;
     }
-}
-    
+}  
+
 // Prevents power consumption on the outputs
 void    AccelStepper::disableOutputs()
 {   

@@ -16,6 +16,8 @@ class LCD {
     private:
     int _addr;
     LCD_SSD1306 _LCD;
+    String _lines[4] = {"", "", "", ""};
+    String _displayedLines[4] = {"", "", "", ""};
     public:
     LCD(int address) {
         _addr = address;
@@ -71,6 +73,32 @@ class LCD {
         _LCD.println(errorLine2);
         _LCD.setFontSize(FONT_SIZE_SMALL);
         _LCD.println(errorLine3);
+    }
+
+    void setTextToShow(String line1="", String line2="", String line3="", String line4=""){
+        _lines[0] = line1;
+        _lines[1] = line2;
+        _lines[2] = line3;
+        _lines[3] = line4;
+    }
+
+    //Update the display
+    unsigned long updateMillis = 0;
+    int yPos = 0;
+    int currentLine = 0;
+    void update() {
+        int height = 0;
+        if(currentLine < 2){height = 2;}else{height = 1;}
+        if(_lines[currentLine] != _displayedLines[currentLine]) {
+            if(currentLine < 2){_LCD.setFontSize(FONT_SIZE_MEDIUM);}else{_LCD.setFontSize(FONT_SIZE_SMALL);}
+            _LCD.setCursor(10, yPos);
+            _LCD.println(_lines[currentLine]);
+            _displayedLines[currentLine] = _lines[currentLine];
+        }
+        currentLine++;
+        yPos += height;
+        if(currentLine == 1) {yPos += 1;}
+        if(currentLine >= 4){currentLine = 0; yPos = 0;}
     }
 
     //Show text

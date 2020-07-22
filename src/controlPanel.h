@@ -32,6 +32,7 @@ class ControlPanel {
     int _memoryStartAddress;
     int _totalMemoryAllocation = CONTROLPANEL_MEM_ALLOC;
     int _potSettings[2][3] = {{0, 0, 0}, {0, 0, 0}};
+    int _stopPin = 0;
     Buttons _buttons;
 
     //Calibrate a pot
@@ -79,6 +80,7 @@ class ControlPanel {
         //Constructor this assumes that the buttons are in a grid with the buttons going down each row before col
         ControlPanel(int startPin, int leftPotPin, int rightPotPin, int memoryStartAddress) { //probs no work
             _memoryStartAddress = memoryStartAddress;
+            _stopPin = (startPin - 1) + (2 * (TOTAL_COLS * TOTAL_ROWS));
 
             //Set the pins
             int currentPin = startPin;
@@ -97,41 +99,34 @@ class ControlPanel {
             pinMode(_potSettings[Pot::Right][PotValues::Pin], INPUT);
         }
 
+        bool isStopButtonPressed() {
+            return isButtonPressed(_stopPin);
+        }
+
+        bool isButtonPressed(int pin) {
+            int val = 0;
+            for(int k = 0; k < 20; k++) {
+                val += digitalRead(pin);
+            }
+            return val / 20;
+        }
+
         //Constantly check if a button is pressed. This should be called every loop cycle. Will return an array of button id's that have been pressed 
         //[0][0] is the amount of buttons down
         //[1][x..amountOfButtonsDown] is the button id(s) that are down
         Buttons isButtonsPressed() {
             for(int i = 0; i < TOTAL_ROWS; i++) {
                 for(int j = 0; j < TOTAL_COLS; j++) {
-                    int val = 0;
-                    for(int k = 0; k < 20; k++) {
-                        val += digitalRead(_buttons.pins[i][j]);
-                    }
-                    _buttons.buttonStates[i][j] = val / 20;
+                    _buttons.buttonStates[i][j] = isButtonPressed(_buttons.pins[i][j]);
+                    // int val = 0;
+                    // for(int k = 0; k < 20; k++) {
+                    //     val += digitalRead(_buttons.pins[i][j]);
+                    // }
+                    // _buttons.buttonStates[i][j] = val / 20;
                 }
             }
 
             return _buttons;
-
-
-
-            // int buttonsDown[2][TOTAL_ROWS * TOTAL_COLS];
-            // int totalButtonsDown = 0;
-            // for(int i = 0; i < TOTAL_ROWS; i++) {
-            //     for(int j = 0; j < TOTAL_COLS; j++) {
-            //         if(digitalRead(_pins[i][j]) == 0) {
-            //             if(_times[i][j] == 0) {_times[i][j] = millis() + 100;}
-            //             else if(_times[i][j] < millis()) {
-            //                 //This button has been pressed
-            //                 _times[i][j] = 0;
-            //                 buttonsDown[1][totalButtonsDown] = i * j;
-            //                 totalButtonsDown++;
-            //             }
-            //         }
-            //         else {_times[i][j] = 0;}
-            //     }
-            // }
-            // buttonsDown[0][0] = totalButtonsDown;
         }
 
         //Get the percentage of a pot

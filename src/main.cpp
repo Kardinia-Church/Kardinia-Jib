@@ -10,7 +10,9 @@
 #include <avr/interrupt.h>
 
 #define SOFTWARE_VERSION_MAJOR 2
-#define SOFTWARE_VERSION_MINOR 4
+#define SOFTWARE_VERSION_MINOR 5
+
+String _errorText = "";
 
 //Heartbeat
 unsigned long heartBeat = 0;
@@ -69,6 +71,8 @@ void printMemory() {
   }
 }
 
+void(* resetFunc) (void) = 0; 
+
 //Begin setup
 void setup() {
     Serial.begin(115200);
@@ -120,7 +124,7 @@ void setup() {
     //Read the parameters in memory and set them
     Serial.println("Read settings from memory");
 
-    if(!rightJoyStick.readSettingsFromMemory() || !controlPanel.readSettingsFromMemory() || !head.readSettingsFromMemory()) {
+    if(!rightJoyStick.readSettingsFromMemory() || !controlPanel.readSettingsFromMemory()) {
       Serial.println("Critical error: failed to read memory from one or more objects");
       Serial.println("Process cannot continue.\n\nEEPROM has been reset please disconnect power and recalibate the system");
       resetMemory();
@@ -133,7 +137,7 @@ void setup() {
       }
     }
 
-    if(!rightJoyStick.checkSettings() || !controlPanel.checkSettings() || !head.checkSettings()) {
+    if(!rightJoyStick.checkSettings() || !controlPanel.checkSettings()) {
       leftLCD.clear();
       rightLCD.clear();
       leftLCD.showError("Calibration", "Calibration", "is required");
@@ -158,50 +162,95 @@ void setup() {
         Serial.println("\nControl panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
         controlPanel.calibrate(leftLCD, rightLCD);
       }
-
-      //Check if the read settings were correct if not they will need to be calibrated
-      if(!head.checkSettings()) {
-        Serial.println("\nHead has invalid settings and will need to be recalibrated. Starting calibration utility...");
-        head.calibrate(controlPanel);
-      }
     }
 
     //Begin homing of the head
-    rightLCD.showText("Resetting", "Homing");
-    //head.home();
-    Serial.println("Complete");
+    rightLCD.clear();
+    if(head.reset() != Stepper::HomeStatus::Complete){
+      //Failed homing
+      _errorText = "Home Failed!";
+    }
+
+    if(_errorText == ""){Serial.println("Complete");}
+    else {Serial.println("Failed - " + _errorText);}
+
     leftLCD.clear();
     rightLCD.clear();
-    
-    // OCR0A = 0xAF;
-    // TIMSK0 |= _BV(OCIE0A);
 }
 
-//Main loop
-int hi = 0;
-void loop() {
-    blinkDebugLed();
-    //showDebugLCD();
-
-    // head.moveXY(rightJoyStick.getPercentage(JoyStick::Axis::X), rightJoyStick.getPercentage(JoyStick::Axis::Y), controlPanel.getPotPercentage(ControlPanel::Pot::Right), controlPanel.getPotPercentage(ControlPanel::Pot::Left));
-    // leftLCD.showValue("Acceleration", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%");
-    // rightLCD.showValue("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%");
-
-    head.run();
-    if(!head.isMoving()){
-      if(hi == 0) {
-        head.moveToXY(0, 0);
-        hi = 1;
+//Check the buttons for speicific moves
+void checkButtons() {
+    if(controlPanel.isButtonsPressed().buttonStates[0][0]) {
+      //Centre head
+      head.goHome(100.0, 500.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[0][1]) {
+      //Reboot
+      leftLCD.showText("Reboot", "", "Are you sure?", "Keep holding");
+      delay(5000);
+      if(controlPanel.isButtonsPressed().buttonStates[0][1]) {
+        resetFunc();
       }
-      else {
-        head.moveToXY(5000, 300);
-        hi = 0;
-      }
+      leftLCD.clear();
+      leftLCD.setTextToShow("", "", "", "");
+      leftLCD.update();
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[2][0]) {
+      //Pan left 45 degreesish
+      head.moveRelative(1000000, 0, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[1][0]) {
+      //Pan right 45 degreesish
+      head.moveRelative(-1000000, 0, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[1][1]) {
+      //Tilt up 45 degreesish
+      head.moveRelative(0, 10000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[2][1]) {
+      //Tilt down 45 degreesish
+      head.moveRelative(0, -1000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
     }
 }
 
-// //Called constantly blocking all other functions
-// SIGNAL(TIMER0_COMPA_vect) 
-// {
-//   head.run();
-// } 
+void processJoyStick() {
+  float acceleration = 100.0;
+  float globalSpeed = controlPanel.getPotPercentage(ControlPanel::Pot::Right);
+  float xSpeed = (rightJoyStick.getPercentage(JoyStick::Axis::X) / 100.0) * (globalSpeed / 100.0);
+  float ySpeed = (rightJoyStick.getPercentage(JoyStick::Axis::Y) / 100.0) * (globalSpeed / 100.0);
+  head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
+}
+
+//Main loop
+void loop() {
+    blinkDebugLed();
+
+    if(head.isMoving()) {
+      while(head.isMoving()) {
+        if(controlPanel.isStopButtonPressed()) {
+          //Stop
+          head.stop(20000.0);
+        }
+
+        if(!head.movingToPosition()) {
+          processJoyStick();
+        }
+
+        if(head.isMovingRelative()) {
+          head.setMaxSpeed(controlPanel.getPotPercentage(ControlPanel::Pot::Right));
+        }
+
+        head.run();
+      }
+    }
+
+    //Update the LCDs
+    //leftLCD.setTextToShow("Focus", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "NOT USED", "NOT USED");
+    rightLCD.setTextToShow("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText);
+    //leftLCD.update();
+    rightLCD.update();
+
+    processJoyStick();
+    checkButtons();
+    head.run();
+}
