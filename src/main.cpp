@@ -211,6 +211,14 @@ void checkButtons() {
       //Tilt down 45 degreesish
       head.moveRelative(0, -1000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
     }
+    if(controlPanel.isButtonsPressed().buttonStates[1][2]) {
+      //Move both tilt and pan
+      head.moveRelative(10000000, 10000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[2][2]) {
+      //Move both tilt and pan
+      head.moveRelative(-1000000, -1000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
 }
 
 void processJoyStick() {
