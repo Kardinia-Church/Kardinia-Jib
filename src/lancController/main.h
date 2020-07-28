@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "lancHandler.cpp"
+#include "../commandStructure.h"
 
 #define SOFTWARE_VERSION_MAJOR 0
 #define SOFTWARE_VERSION_MINOR 1
