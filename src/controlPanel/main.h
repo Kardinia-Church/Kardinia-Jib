@@ -9,8 +9,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define SOFTWARE_VERSION_MAJOR 2
-#define SOFTWARE_VERSION_MINOR 5
+#define SOFTWARE_VERSION_MAJOR 3
+#define SOFTWARE_VERSION_MINOR 0
 
 String _errorText = "";
 
@@ -75,6 +75,8 @@ void(* resetFunc) (void) = 0;
 
 //Begin setup
 void setup() {
+    Serial1.begin(38400);
+    Serial1.println("START");
     Serial.begin(115200);
     Serial.println("Kardinia Jib Controller 2019");
     Serial.println(String("Version:") + SOFTWARE_VERSION_MAJOR + String(".") + SOFTWARE_VERSION_MINOR);
@@ -229,9 +231,59 @@ void processJoyStick() {
   head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
 }
 
+
+
 //Main loop
 void loop() {
     blinkDebugLed();
+
+    //Handle serial commands when sent
+    if(serialCommunication.processSerialCommunication()) {
+      switch(serialCommunication.getSerialType()) {
+        case SerialCommunication::Type::Head: {
+          switch(serialCommunication.getSerialCommand()) {
+            case SerialCommunication::HeadCommand::RelMove: {
+              long x = serialCommunication.getLongValue(serialCommunication.getSerialData(), 0);
+              long y = serialCommunication.getLongValue(serialCommunication.getSerialData(), 4);
+              float speed = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 8);
+              float acceleration = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 12);
+              Serial.print("GOT: Rel move request X=");Serial.print(x); Serial.print(" Y="); Serial.print(y); Serial.print(" Speed="); Serial.print(speed); Serial.print(" Accel="); Serial.println(acceleration);
+
+              head.moveRelative(x, y, speed, acceleration);
+              break;
+            }
+            case SerialCommunication::HeadCommand::AbsMove: {
+              long x = serialCommunication.getLongValue(serialCommunication.getSerialData(), 0);
+              long y = serialCommunication.getLongValue(serialCommunication.getSerialData(), 4);
+              float speed = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 8);
+              float acceleration = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 12);
+              Serial.print("GOT: Abs move request X=");Serial.print(x); Serial.print(" Y="); Serial.print(y); Serial.print(" Speed="); Serial.print(speed); Serial.print(" Accel="); Serial.println(acceleration);
+
+              head.moveToXY(x, y, speed, acceleration);
+              break;
+            }
+            case SerialCommunication::HeadCommand::MoveSpeed: {
+              float x = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 0);
+              float y = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 4);
+              float acceleration = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 8);
+              Serial.print("GOT: Speed move request X=");Serial.print(x); Serial.print(" Y="); Serial.print(y); Serial.print(" Accel="); Serial.println(acceleration);
+
+              head.moveXY(x, y, acceleration);
+              break;
+            }
+            case SerialCommunication::HeadCommand::ResetHead: {
+              Serial.println("GOT: Reset head request");
+              leftLCD.showText("WARNING", "About to reset!", "Network request", "10 seconds to reset");
+              leftLCD.showText("WARNING", "About to reset!", "Network request", "10 seconds to reset");
+              delay(10000);
+              resetFunc();
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
 
     if(head.isMoving()) {
       while(head.isMoving()) {
@@ -248,7 +300,7 @@ void loop() {
           head.setMaxSpeed(controlPanel.getPotPercentage(ControlPanel::Pot::Right));
         }
 
-        head.run();
+        //head.run();
       }
     }
 

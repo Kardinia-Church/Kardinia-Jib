@@ -45,8 +45,14 @@ ControlPanel controlPanel(22, A0, A1, CONTROLPANEL_MEM_ADDR);
 
 //Head Settings
 //(AccelStepper stepper, int limitPin, boolean invert, int maxSpeed, int defaultAcceleration, long maxPosition, int invertLimit=0) {
-Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 1000, 50, 26000, 1);
-Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 2000, 50, 6500, 1);
+// Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 1000, 50, 26000, 1);
+// Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 2000, 50, 6500, 1);
+
+Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 4), 2, 0, 1000, 50, 26000, 1);
+Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 6), 2, 1, 2000, 50, 6500, 1);
 Head head(xStepper, yStepper);
+
+#include "../SerialCommunication.h"
+SerialCommunication serialCommunication(&Serial1);
 
 #endif
