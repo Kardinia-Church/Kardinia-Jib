@@ -75,8 +75,6 @@ void(* resetFunc) (void) = 0;
 
 //Begin setup
 void setup() {
-    Serial1.begin(38400);
-    Serial1.println("START");
     Serial.begin(115200);
     Serial.println("Kardinia Jib Controller 2019");
     Serial.println(String("Version:") + SOFTWARE_VERSION_MAJOR + String(".") + SOFTWARE_VERSION_MINOR);
@@ -139,42 +137,71 @@ void setup() {
       }
     }
 
-    if(!rightJoyStick.checkSettings() || !controlPanel.checkSettings()) {
-      leftLCD.clear();
-      rightLCD.clear();
-      leftLCD.showError("Calibration", "Calibration", "is required");
-      rightLCD.showText("Press to begin", "Begin Cal >");
+    // if(!rightJoyStick.checkSettings() || !controlPanel.checkSettings()) {
+    //   leftLCD.clear();
+    //   rightLCD.clear();
+    //   leftLCD.showError("Calibration", "Calibration", "is required");
+    //   rightLCD.showText("Press to begin", "Begin Cal >");
 
-      while(true) {
-        bool leave = false;
-        for(int i = 0; i < TOTAL_COLS; i++) {
-          if(controlPanel.isButtonsPressed().buttonStates[3][i]){leave = true;}
-        }
-        if(leave){break;}
-      }
+    //   while(true) {
+    //     bool leave = false;
+    //     for(int i = 0; i < TOTAL_COLS; i++) {
+    //       if(controlPanel.isButtonsPressed().buttonStates[3][i]){leave = true;}
+    //     }
+    //     if(leave){break;}
+    //   }
 
-      //If the joystick is not calibrated calibrate it
-      if(!rightJoyStick.checkSettings()) {
-        Serial.println("\nThe right joystick has invalid settings and will need to be recalibrated. Starting calibration utility...");
-        rightJoyStick.calibrate(leftLCD, rightLCD);
-      }
+    //   //If the joystick is not calibrated calibrate it
+    //   if(!rightJoyStick.checkSettings()) {
+    //     Serial.println("\nThe right joystick has invalid settings and will need to be recalibrated. Starting calibration utility...");
+    //     rightJoyStick.calibrate(leftLCD, rightLCD);
+    //   }
 
-      //If the control panel is not calibrated calibrate it
-      if(!controlPanel.checkSettings()) {
-        Serial.println("\nControl panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
-        controlPanel.calibrate(leftLCD, rightLCD);
-      }
+    //   //If the control panel is not calibrated calibrate it
+    //   if(!controlPanel.checkSettings()) {
+    //     Serial.println("\nControl panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
+    //     controlPanel.calibrate(leftLCD, rightLCD);
+    //   }
+    // }
+
+    
+    //Connect to network
+    Serial.print("Attempting connection to network");
+    rightLCD.showText("Network Connecting..", "", "", "");
+
+    int connectedToEthernet = 0;
+    #ifndef STATIC_IP
+    Serial.print(" via DHCP");
+    connectedToEthernet = Ethernet.begin(mac);
+    #else
+    Serial.print(" via static ip");
+    Ethernet.begin(mac, ip, gateway, subnet);
+    connectedToEthernet = 1;
+    #endif
+
+    if(connectedToEthernet == 0) {
+      Serial.println(" Failed to connect");
+      _errorText += "Network Disconnected";
+      rightLCD.showText("Network Failed", "", "", "");
+    }
+    else {
+      Serial.print(" Connected IP: ");
+      Serial.print(Ethernet.localIP());
+      udp.begin(INCOMING_PORT);
+      Serial.print(", Listening on port ");
+      Serial.println(INCOMING_PORT);
+      rightLCD.showText("Network Connected", "", "", "IP: " + (String)Ethernet.localIP());
     }
 
     //Begin homing of the head
     rightLCD.clear();
-    if(head.reset() != Stepper::HomeStatus::Complete){
-      //Failed homing
-      _errorText = "Home Failed!";
-    }
+    // if(head.reset() != Stepper::HomeStatus::Complete){
+    //   //Failed homing
+    //   _errorText += "Home Failed!";
+    // }
 
     if(_errorText == ""){Serial.println("Complete");}
-    else {Serial.println("Failed - " + _errorText);}
+    else {Serial.println("Error - " + _errorText);}
 
     leftLCD.clear();
     rightLCD.clear();
@@ -231,86 +258,139 @@ void processJoyStick() {
   head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
 }
 
+//Send out a network command to the server for updates
+void sendMessageToServer(String message = "") {
+    udp.beginPacket(udp.remoteIP(), OUTGOING_PORT);
+    udp.print("KJIB" + udpPassword + message);
+    udp.endPacket();
+    // udp.stop();
+    // udp.begin(INCOMING_PORT);
+}
 
+//Process the network incomers
+/*
+Expects a packet as follows
+
+KJIB [PASSWORD] [COMMANDS TO PASS (CHECK JIB DOCUMENTATION)]
+*/
+char packetBuffer[PACKET_SIZE];
+void processNetworkIncoming() {
+  int incoming = udp.parsePacket();
+
+  //Got packet?
+  if (incoming) {
+    memset(packetBuffer, 0, sizeof(packetBuffer));
+    udp.read(packetBuffer, PACKET_SIZE);
+    IPAddress remoteIP = udp.remoteIP();
+
+    //Check KJIB flag
+    if(packetBuffer[0] != 0x4B){return false;}
+    if(packetBuffer[1] != 0x4A){return false;}
+    if(packetBuffer[2] != 0x49){return false;}
+    if(packetBuffer[3] != 0x42){return false;}
+
+    serverIP = udp.remoteIP();
+    foundServer = true;
+
+    //If the incoming length is 4 the server is asking where we are
+    if(incoming == 4){
+      Serial.println("Replied to server ping request");
+      sendMessageToServer();
+    }
+
+    //Check password
+    for(int i = 0; i < udpPassword.length(); i++) {
+      if(packetBuffer[i + 4] != udpPassword[i]) {
+        //If the password is incorrect
+        return false;
+      }
+    }
+
+    NetworkCommandType type = packetBuffer[4 + udpPassword.length() + 0];
+    int command = packetBuffer[4 + udpPassword.length() + 1];
+    int value = packetBuffer[4 + udpPassword.length() + 2];
+    int dataSize = packetBuffer[4 + udpPassword.length() + 3];
+    int data[dataSize];
+
+    for(int i = 0; i < dataSize; i++) {
+      data[i] = packetBuffer[4 + udpPassword.length() + 4 + i];
+    }
+
+    //Process lanc commands here and pass head commands to the control panel
+    switch(type) {
+      case NetworkCommandType::Head: {
+        Serial.println("HEAD");
+        break;
+      }
+      case NetworkCommandType::Lanc: {
+        Serial.println("LANC");
+        break;
+      }
+    }
+
+    // //Fix as it will stop listening when the server dies for some reason
+    udp.flush();
+    udp.stop();
+    udp.begin(INCOMING_PORT);
+  }
+}
 
 //Main loop
+int lastEthernetState = 0;
 void loop() {
     blinkDebugLed();
+    processNetworkIncoming();
 
-    //Handle serial commands when sent
-    if(serialCommunication.processSerialCommunication()) {
-      switch(serialCommunication.getSerialType()) {
-        case SerialCommunication::Type::Head: {
-          switch(serialCommunication.getSerialCommand()) {
-            case SerialCommunication::HeadCommand::RelMove: {
-              long x = serialCommunication.getLongValue(serialCommunication.getSerialData(), 0);
-              long y = serialCommunication.getLongValue(serialCommunication.getSerialData(), 4);
-              float speed = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 8);
-              float acceleration = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 12);
-              Serial.print("GOT: Rel move request X=");Serial.print(x); Serial.print(" Y="); Serial.print(y); Serial.print(" Speed="); Serial.print(speed); Serial.print(" Accel="); Serial.println(acceleration);
+    // if(head.isMoving()) {
+    //   while(head.isMoving()) {
+    //     if(controlPanel.isStopButtonPressed()) {
+    //       //Stop
+    //       head.stop(20000.0);
+    //     }
 
-              head.moveRelative(x, y, speed, acceleration);
-              break;
-            }
-            case SerialCommunication::HeadCommand::AbsMove: {
-              long x = serialCommunication.getLongValue(serialCommunication.getSerialData(), 0);
-              long y = serialCommunication.getLongValue(serialCommunication.getSerialData(), 4);
-              float speed = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 8);
-              float acceleration = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 12);
-              Serial.print("GOT: Abs move request X=");Serial.print(x); Serial.print(" Y="); Serial.print(y); Serial.print(" Speed="); Serial.print(speed); Serial.print(" Accel="); Serial.println(acceleration);
+    //     if(!head.movingToPosition()) {
+    //       processJoyStick();
+    //     }
 
-              head.moveToXY(x, y, speed, acceleration);
-              break;
-            }
-            case SerialCommunication::HeadCommand::MoveSpeed: {
-              float x = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 0);
-              float y = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 4);
-              float acceleration = serialCommunication.getFloatValue(serialCommunication.getSerialData(), 8);
-              Serial.print("GOT: Speed move request X=");Serial.print(x); Serial.print(" Y="); Serial.print(y); Serial.print(" Accel="); Serial.println(acceleration);
+    //     if(head.isMovingRelative()) {
+    //       head.setMaxSpeed(controlPanel.getPotPercentage(ControlPanel::Pot::Right));
+    //     }
 
-              head.moveXY(x, y, acceleration);
-              break;
-            }
-            case SerialCommunication::HeadCommand::ResetHead: {
-              Serial.println("GOT: Reset head request");
-              leftLCD.showText("WARNING", "About to reset!", "Network request", "10 seconds to reset");
-              leftLCD.showText("WARNING", "About to reset!", "Network request", "10 seconds to reset");
-              delay(10000);
-              resetFunc();
-              break;
-            }
-          }
-          break;
-        }
-      }
-    }
-
-    if(head.isMoving()) {
-      while(head.isMoving()) {
-        if(controlPanel.isStopButtonPressed()) {
-          //Stop
-          head.stop(20000.0);
-        }
-
-        if(!head.movingToPosition()) {
-          processJoyStick();
-        }
-
-        if(head.isMovingRelative()) {
-          head.setMaxSpeed(controlPanel.getPotPercentage(ControlPanel::Pot::Right));
-        }
-
-        //head.run();
-      }
-    }
+    //     //head.run();
+    //   }
+    // }
 
     //Update the LCDs
     //leftLCD.setTextToShow("Focus", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "NOT USED", "NOT USED");
-    rightLCD.setTextToShow("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText);
-    //leftLCD.update();
-    rightLCD.update();
+    // rightLCD.setTextToShow("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText);
+    // //leftLCD.update();
+    // rightLCD.update();
 
-    processJoyStick();
-    checkButtons();
-    head.run();
+    // processJoyStick();
+    // checkButtons();
+    // head.run();
+
+  //Process network updates
+  if(lastEthernetState != Ethernet.linkStatus()) {
+    lastEthernetState = Ethernet.linkStatus();
+    switch(Ethernet.linkStatus()) {
+      case LinkON: {
+        Serial.println("Network connected");
+        _errorText = "";
+        break;
+      }
+      case LinkOFF: {
+        Serial.println("Network disconnected");
+        _errorText = "Network disconnected";
+        break;
+      }
+      case Unknown: {
+        Serial.println("Network disconnected");
+        _errorText = "Network disconnected";
+        break;
+      }
+    }
+  }
+
+  Ethernet.maintain();
 }

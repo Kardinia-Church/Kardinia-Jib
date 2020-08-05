@@ -27,6 +27,10 @@
 // #define HEAD_MEM_ADDR CONTROLPANEL_MEM_ADDR + CONTROLPANEL_MEM_ALLOC
 #define END_OF_MEMORY CONTROLPANEL_MEM_ADDR + CONTROLPANEL_MEM_ALLOC
 
+#define INCOMING_PORT 23489
+#define OUTGOING_PORT 21342
+#define PACKET_SIZE 64
+
 #include "lcd.h"
 
 //LCD Settings
@@ -36,6 +40,9 @@ LCD rightLCD(0x3D);
 #include "joystick.h"
 #include "controlPanel.h"
 #include "head.h"
+#include "lancHandler.cpp"
+#include <UIPEthernet.h>
+
 
 //JoyStick Settings
 JoyStick rightJoyStick(A5, A6, A7, true, true, false, RIGHTJOY_MEM_ADDR);
@@ -52,7 +59,85 @@ Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 4), 2, 0, 1000, 50, 26000
 Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 6), 2, 1, 2000, 50, 6500, 1);
 Head head(xStepper, yStepper);
 
-#include "../SerialCommunication.h"
-SerialCommunication serialCommunication(&Serial1);
+// #include "../SerialCommunication.h"
+// SerialCommunication serialCommunication(&Serial1);
+
+
+
+byte mac[] = {0x1C, 0x39, 0x47, 0x10, 0x0A, 0x8F};
+EthernetUDP udp;
+String udpPassword = "tricaster";
+bool foundServer = false;
+IPAddress serverIP(192, 168, 0, 5);
+
+#define STATIC_IP
+#ifdef STATIC_IP
+    IPAddress ip(10, 0, 0, 5);
+    IPAddress gateway(10, 0, 0, 138);
+    IPAddress subnet(255, 255, 255, 0);
+#endif
+
+LancController lancController(3, 4);
+
+
+enum NetworkCommandType {
+    Lanc,
+    Head,
+    Status
+};
+
+enum LancCommand {
+    ZoomIn,
+    ZoomOut,
+    Rec,
+    Focus,
+    WhiteBalance,
+    Iris,
+    Shutter
+};
+
+enum LancZoomValue {
+    Speed1,
+    Speed2,
+    Speed3,
+    Speed4,
+    Speed5,
+    Speed6,
+    Speed7,
+    Speed8
+};
+
+enum LancRecValue {
+    Start,
+    Stop
+};
+
+enum LancFocusValue {
+    Toggle,
+    Far,
+    Near
+};
+
+enum LancWhiteBalanceValue {
+    Process,
+    Reset
+};
+
+enum LancIrisValue {
+    Auto,
+    Open,
+    Close
+};
+
+enum LancShutterValue {
+    Next
+};
+
+enum StatusValue {
+    Startup,
+    Ready,
+    NetworkDisconnected,
+    NetworkConnected
+};
 
 #endif
