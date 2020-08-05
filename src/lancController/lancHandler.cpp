@@ -117,6 +117,8 @@ class LancController {
         int subCmd = 0;
         int cmd = 0;
 
+        Serial.print(" ID=" + command);
+
         switch(command) {
             //Sub command 0x18
             case CameraCommand::startStop: {subCmd = 0x18; cmd = 0x33; break;}

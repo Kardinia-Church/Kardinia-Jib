@@ -31,7 +31,8 @@ class SerialCommunication {
 
     enum Type {
         Lanc,
-        Head
+        Head,
+        Status
     };
 
     //Process the incoming serial data. Returns true when data was received
@@ -142,6 +143,13 @@ class SerialCommunication {
         Next
     };
 
+    enum StatusValue {
+        Startup,
+        Ready,
+        NetworkDisconnected,
+        NetworkConnected
+    };
+
     //Send out a lanc command
     void sendLancCommand(LancCommand lancCommand, int value) {
         sendRawSerial(Type::Lanc, lancCommand, value);
@@ -195,6 +203,11 @@ class SerialCommunication {
     //Request the head to reboot
     void sendHeadReset() {
         sendHeadCommand(HeadCommand::ResetHead);
+    }
+
+    //Send a status update
+    void sendStatus(int status) {
+        sendRawSerial(Type::Status, 0, status);
     }
 
     //Get a long value from bytes
