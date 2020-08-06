@@ -162,37 +162,20 @@ void setup() {
     //     Serial.println("\nControl panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
     //     controlPanel.calibrate(leftLCD, rightLCD);
     //   }
-    // }
+    // } 
 
-    
     //Connect to network
-    Serial.print("Attempting connection to network");
-    rightLCD.showText("Network Connecting..", "", "", "");
-
-    int connectedToEthernet = 0;
-    #ifndef STATIC_IP
-    Serial.print(" via DHCP");
-    connectedToEthernet = Ethernet.begin(mac);
-    #else
-    Serial.print(" via static ip");
-    Ethernet.begin(mac, ip, gateway, subnet);
-    connectedToEthernet = 1;
-    #endif
-
-    if(connectedToEthernet == 0) {
-      Serial.println(" Failed to connect");
-      _errorText += "Network Disconnected";
-      rightLCD.showText("Network Failed", "", "", "");
+    Serial.print("Attempting connection to network...");
+    if(networkHandler.begin()) {
+      Serial.print(" Success! IPAddress: ");
+      Serial.print(networkHandler.localIP());
+      Serial.print(":");
+      Serial.println(networkHandler.incomingPort());
     }
     else {
-      Serial.print(" Connected IP: ");
-      Serial.print(Ethernet.localIP());
-      udp.begin(INCOMING_PORT);
-      Serial.print(", Listening on port ");
-      Serial.println(INCOMING_PORT);
-      rightLCD.showText("Network Connected", "", "", "IP: " + (String)Ethernet.localIP());
+      Serial.println(" Failed");
     }
-
+   
     //Begin homing of the head
     rightLCD.clear();
     // if(head.reset() != Stepper::HomeStatus::Complete){
@@ -200,8 +183,8 @@ void setup() {
     //   _errorText += "Home Failed!";
     // }
 
-    if(_errorText == ""){Serial.println("Complete");}
-    else {Serial.println("Error - " + _errorText);}
+    if(_errorText == ""){Serial.println("Setup Complete");}
+    else {Serial.println("Setup Error - " + _errorText);}
 
     leftLCD.clear();
     rightLCD.clear();
@@ -258,88 +241,114 @@ void processJoyStick() {
   head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
 }
 
-//Send out a network command to the server for updates
-void sendMessageToServer(String message = "") {
-    udp.beginPacket(udp.remoteIP(), OUTGOING_PORT);
-    udp.print("KJIB" + udpPassword + message);
-    udp.endPacket();
-    // udp.stop();
-    // udp.begin(INCOMING_PORT);
+int16_t readInt16(int *buffer, int index) {
+  return static_cast<unsigned>(buffer[index]) << 8 | static_cast<unsigned>(buffer[index + 1]);
 }
 
-//Process the network incomers
-/*
-Expects a packet as follows
+int32_t readInt32(int *buffer, int index) {
+  union ArrayToInteger {
+    byte array[4];
+    int32_t integer;
+  };
+  ArrayToInteger conv;
+  conv.array[0] = buffer[index];
+  conv.array[1] = buffer[index + 1];
+  conv.array[2] = buffer[index + 2];
+  conv.array[3] = buffer[index + 3];
 
-KJIB [PASSWORD] [COMMANDS TO PASS (CHECK JIB DOCUMENTATION)]
-*/
-char packetBuffer[PACKET_SIZE];
-void processNetworkIncoming() {
-  int incoming = udp.parsePacket();
-
-  //Got packet?
-  if (incoming) {
-    memset(packetBuffer, 0, sizeof(packetBuffer));
-    udp.read(packetBuffer, PACKET_SIZE);
-    IPAddress remoteIP = udp.remoteIP();
-
-    //Check KJIB flag
-    if(packetBuffer[0] != 0x4B){return false;}
-    if(packetBuffer[1] != 0x4A){return false;}
-    if(packetBuffer[2] != 0x49){return false;}
-    if(packetBuffer[3] != 0x42){return false;}
-
-    serverIP = udp.remoteIP();
-    foundServer = true;
-
-    //If the incoming length is 4 the server is asking where we are
-    if(incoming == 4){
-      Serial.println("Replied to server ping request");
-      sendMessageToServer();
-    }
-
-    //Check password
-    for(int i = 0; i < udpPassword.length(); i++) {
-      if(packetBuffer[i + 4] != udpPassword[i]) {
-        //If the password is incorrect
-        return false;
-      }
-    }
-
-    NetworkCommandType type = packetBuffer[4 + udpPassword.length() + 0];
-    int command = packetBuffer[4 + udpPassword.length() + 1];
-    int value = packetBuffer[4 + udpPassword.length() + 2];
-    int dataSize = packetBuffer[4 + udpPassword.length() + 3];
-    int data[dataSize];
-
-    for(int i = 0; i < dataSize; i++) {
-      data[i] = packetBuffer[4 + udpPassword.length() + 4 + i];
-    }
-
-    //Process lanc commands here and pass head commands to the control panel
-    switch(type) {
-      case NetworkCommandType::Head: {
-        Serial.println("HEAD");
-        break;
-      }
-      case NetworkCommandType::Lanc: {
-        Serial.println("LANC");
-        break;
-      }
-    }
-
-    // //Fix as it will stop listening when the server dies for some reason
-    udp.flush();
-    udp.stop();
-    udp.begin(INCOMING_PORT);
-  }
+  return conv.integer;
 }
 
 //Main loop
-int lastEthernetState = 0;
+unsigned long test = 0;
 void loop() {
     blinkDebugLed();
-    processNetworkIncoming();
+
+    //Process the incoming network command if there is one
+    if(networkHandler.process()) {
+      switch(networkHandler.type()) {
+        case NetworkHandler::CommandType::Head: {
+          switch(networkHandler.command()) {
+            case NetworkHandler::HeadCommand::RelMove: {
+              if(networkHandler.dataSize() != 0) {
+                int32_t x = readInt32(networkHandler.data(), 0);
+                int32_t y = readInt32(networkHandler.data(), 4);
+                float speed = (float)readInt16(networkHandler.data(), 8) / 327.0;
+                float acceleration = (float)readInt16(networkHandler.data(), 10) / 327.0;
+                Serial.print("Moving rel to X: ");Serial.print(x); Serial.print(" Y:");Serial.print(y); Serial.print(" Speed:"); Serial.print(speed); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
+                head.moveRelative(x, y, speed, acceleration);
+              }
+
+              break;
+            }
+            case NetworkHandler::HeadCommand::AbsMove: {
+              if(networkHandler.dataSize() != 0) {
+                int32_t x = readInt32(networkHandler.data(), 0);
+                int32_t y = readInt32(networkHandler.data(), 4);
+                float speed = (float)readInt16(networkHandler.data(), 8) / 327.0;
+                float acceleration = (float)readInt16(networkHandler.data(), 10) / 327.0;
+                Serial.print("Moving abs to X: ");Serial.print(x); Serial.print(" Y:");Serial.print(y); Serial.print(" Speed:"); Serial.print(speed); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
+                head.moveToXY(x, y, speed, acceleration);
+              }
+              break;
+            }
+            case NetworkHandler::HeadCommand::MoveSpeed: {
+              if(networkHandler.dataSize() != 0) {
+                float speedX = (float)readInt16(networkHandler.data(), 0) / 327.0;
+                float speedY = (float)readInt16(networkHandler.data(), 2) / 327.0;
+                float acceleration = (float)readInt16(networkHandler.data(), 4) / 327.0;
+                Serial.print("Moving speed at X: ");Serial.print(speedX); Serial.print("% Y:");Serial.print(speedY); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
+                head.moveXY(speedX, speedY, acceleration);
+              }
+              break;
+            }
+            case NetworkHandler::HeadCommand::Stop: {
+              float acceleration = (float)readInt16(networkHandler.data(), 0) / 327.0;
+              Serial.print("Stopping head at Accel:");Serial.print(acceleration); Serial.println("%");
+              head.stop(acceleration);
+              break;
+            }
+          }
+          break;
+        }
+        case NetworkHandler::CommandType::Lanc: {
+          switch(networkHandler.command()) {
+            case NetworkHandler::LancCommand::Zoom: {
+              Serial.println("Sending LANC command: Zoom " + (String)networkHandler.value());
+              lanc.Zoom(networkHandler.value());
+              break;
+            }
+            case NetworkHandler::LancCommand::Focus: {
+              Serial.println("Sending LANC command: Focus " + (String)networkHandler.value());
+              lanc.Focus(networkHandler.value());
+              break;
+            }
+            case NetworkHandler::LancCommand::AutoFocus: {
+              Serial.println("Sending LANC command: Auto Focus " + (String)networkHandler.value());
+              lanc.AutoFocus();
+              break;
+            }
+          }
+          break;
+        }
+        case NetworkHandler::CommandType::Control: {
+          switch(networkHandler.command()) {
+            case NetworkHandler::ControlCommand::Reboot: {
+              Serial.println("Network request to reboot. Will reboot in 5 seconds");
+              leftLCD.showText("Reboot", "", "Will reboot in 5 seconds", "Requested from network");
+              rightLCD.showText("Reboot", "", "Will reboot in 5 seconds", "Requested from network");
+              networkHandler.sendCommand(NetworkHandler::CommandType::Control, NetworkHandler::ControlCommand::Reboot, 0);
+              delay(5000);
+              resetFunc();
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    lanc.loop();
 
     // if(head.isMoving()) {
     //   while(head.isMoving()) {
@@ -369,28 +378,4 @@ void loop() {
     // processJoyStick();
     // checkButtons();
     // head.run();
-
-  //Process network updates
-  if(lastEthernetState != Ethernet.linkStatus()) {
-    lastEthernetState = Ethernet.linkStatus();
-    switch(Ethernet.linkStatus()) {
-      case LinkON: {
-        Serial.println("Network connected");
-        _errorText = "";
-        break;
-      }
-      case LinkOFF: {
-        Serial.println("Network disconnected");
-        _errorText = "Network disconnected";
-        break;
-      }
-      case Unknown: {
-        Serial.println("Network disconnected");
-        _errorText = "Network disconnected";
-        break;
-      }
-    }
-  }
-
-  Ethernet.maintain();
 }

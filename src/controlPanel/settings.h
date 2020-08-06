@@ -27,9 +27,6 @@
 // #define HEAD_MEM_ADDR CONTROLPANEL_MEM_ADDR + CONTROLPANEL_MEM_ALLOC
 #define END_OF_MEMORY CONTROLPANEL_MEM_ADDR + CONTROLPANEL_MEM_ALLOC
 
-#define INCOMING_PORT 23489
-#define OUTGOING_PORT 21342
-#define PACKET_SIZE 64
 
 #include "lcd.h"
 
@@ -40,9 +37,9 @@ LCD rightLCD(0x3D);
 #include "joystick.h"
 #include "controlPanel.h"
 #include "head.h"
-#include "lancHandler.cpp"
-#include <UIPEthernet.h>
-
+// #include "lancHandler.cpp"
+#include "networkHandler.cpp"
+#include "LibLanc/LibLanc.h"
 
 //JoyStick Settings
 JoyStick rightJoyStick(A5, A6, A7, true, true, false, RIGHTJOY_MEM_ADDR);
@@ -52,92 +49,18 @@ ControlPanel controlPanel(22, A0, A1, CONTROLPANEL_MEM_ADDR);
 
 //Head Settings
 //(AccelStepper stepper, int limitPin, boolean invert, int maxSpeed, int defaultAcceleration, long maxPosition, int invertLimit=0) {
-// Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 1000, 50, 26000, 1);
-// Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 2000, 50, 6500, 1);
-
-Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 4), 2, 0, 1000, 50, 26000, 1);
-Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 6), 2, 1, 2000, 50, 6500, 1);
+Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 50, 0, 1000, 50, 26000, 1);
+Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 4), 52, 1, 2000, 50, 6500, 1);
 Head head(xStepper, yStepper);
 
-// #include "../SerialCommunication.h"
-// SerialCommunication serialCommunication(&Serial1);
+//Lanc settings
+Lanc lanc(8, 9);
 
-
-
-byte mac[] = {0x1C, 0x39, 0x47, 0x10, 0x0A, 0x8F};
-EthernetUDP udp;
-String udpPassword = "tricaster";
-bool foundServer = false;
-IPAddress serverIP(192, 168, 0, 5);
-
-#define STATIC_IP
-#ifdef STATIC_IP
-    IPAddress ip(10, 0, 0, 5);
-    IPAddress gateway(10, 0, 0, 138);
-    IPAddress subnet(255, 255, 255, 0);
-#endif
-
-LancController lancController(3, 4);
-
-
-enum NetworkCommandType {
-    Lanc,
-    Head,
-    Status
-};
-
-enum LancCommand {
-    ZoomIn,
-    ZoomOut,
-    Rec,
-    Focus,
-    WhiteBalance,
-    Iris,
-    Shutter
-};
-
-enum LancZoomValue {
-    Speed1,
-    Speed2,
-    Speed3,
-    Speed4,
-    Speed5,
-    Speed6,
-    Speed7,
-    Speed8
-};
-
-enum LancRecValue {
-    Start,
-    Stop
-};
-
-enum LancFocusValue {
-    Toggle,
-    Far,
-    Near
-};
-
-enum LancWhiteBalanceValue {
-    Process,
-    Reset
-};
-
-enum LancIrisValue {
-    Auto,
-    Open,
-    Close
-};
-
-enum LancShutterValue {
-    Next
-};
-
-enum StatusValue {
-    Startup,
-    Ready,
-    NetworkDisconnected,
-    NetworkConnected
-};
+//Network settings
+byte mac[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress ip(10, 0, 0, 5);
+IPAddress gateway(10, 0, 0, 138);
+IPAddress subnet(255, 255, 255, 0);
+NetworkHandler networkHandler(0, 3204, 3042, "tricaster", mac, ip, gateway, subnet);
 
 #endif
