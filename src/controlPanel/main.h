@@ -178,10 +178,10 @@ void setup() {
    
     //Begin homing of the head
     rightLCD.clear();
-    // if(head.reset() != Stepper::HomeStatus::Complete){
-    //   //Failed homing
-    //   _errorText += "Home Failed!";
-    // }
+    if(head.reset() != Stepper::HomeStatus::Complete){
+      //Failed homing
+      _errorText += "Home Failed!";
+    }
 
     if(_errorText == ""){Serial.println("Setup Complete");}
     else {Serial.println("Setup Error - " + _errorText);}
@@ -262,6 +262,7 @@ int32_t readInt32(int *buffer, int index) {
 //Main loop
 unsigned long test = 0;
 void loop() {
+    test = millis();
     blinkDebugLed();
 
     //Process the incoming network command if there is one
@@ -348,8 +349,6 @@ void loop() {
       }
     }
 
-    lanc.loop();
-
     // if(head.isMoving()) {
     //   while(head.isMoving()) {
     //     if(controlPanel.isStopButtonPressed()) {
@@ -370,12 +369,13 @@ void loop() {
     // }
 
     //Update the LCDs
-    //leftLCD.setTextToShow("Focus", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "NOT USED", "NOT USED");
-    // rightLCD.setTextToShow("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText);
-    // //leftLCD.update();
-    // rightLCD.update();
+    leftLCD.setTextToShow("Focus", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "NOT USED", "NOT USED");
+    rightLCD.setTextToShow("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText);
+    //leftLCD.update();
+    rightLCD.update();
 
-    // processJoyStick();
-    // checkButtons();
-    // head.run();
+    //processJoyStick();
+    checkButtons();
+    head.run();
+    //lanc.loop();
 }
