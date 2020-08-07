@@ -76,6 +76,7 @@ void(* resetFunc) (void) = 0;
 //Begin setup
 void setup() {
     Serial.begin(115200);
+    Serial1.begin(38400);
     Serial.println("Kardinia Jib Controller 2019");
     Serial.println(String("Version:") + SOFTWARE_VERSION_MAJOR + String(".") + SOFTWARE_VERSION_MINOR);
     Serial.println(String("Last Compile Date: ") + __DATE__);
@@ -241,11 +242,46 @@ void processJoyStick() {
   head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
 }
 
-int16_t readInt16(int *buffer, int index) {
+//Send a command out to the serial
+void sendDataToSerial(CommandType type, int command, int value, int dataSize = 0, int *data = nullptr) {
+  Serial1.write(type);
+  Serial1.write(command);
+  Serial1.write(value);
+  Serial1.write(dataSize);
+  for(int i = 0; i < networkHandler.dataSize(); i++) {
+    Serial1.write(data[i]);
+  }
+}
+
+//Send a zoom to the lanc -8 to 8
+void sendZoom(int speed) {
+  if(speed < -8){speed = -8;}
+  if(speed > 8){speed = 8;}
+  sendDataToSerial(CommandType::Lanc, LancCommand::Zoom, speed);
+}
+
+//Send a focus to the lanc 0 - 1
+void sendFocus(int direction) {
+  if(direction < 0){direction = 0;}
+  if(direction > 1){direction = 1;}
+  sendDataToSerial(CommandType::Lanc, LancCommand::Focus, direction);
+}
+
+//Send a auto focus to lanc
+void sendAutoFocus() {
+  sendDataToSerial(CommandType::Lanc, LancCommand::AutoFocus, 0);
+}
+
+//Pass the network poacket over serial to the lanc device for processing
+void passNetworkDataToSerial() {
+  sendDataToSerial(networkHandler.type(), networkHandler.command(), networkHandler.value(), networkHandler.dataSize(), networkHandler.data());
+}
+
+int16_t getInt16(int *buffer, int index) {
   return static_cast<unsigned>(buffer[index]) << 8 | static_cast<unsigned>(buffer[index + 1]);
 }
 
-int32_t readInt32(int *buffer, int index) {
+int32_t getInt32(int *buffer, int index) {
   union ArrayToInteger {
     byte array[4];
     int32_t integer;
@@ -262,49 +298,48 @@ int32_t readInt32(int *buffer, int index) {
 //Main loop
 unsigned long test = 0;
 void loop() {
-    test = millis();
     blinkDebugLed();
 
     //Process the incoming network command if there is one
     if(networkHandler.process()) {
       switch(networkHandler.type()) {
-        case NetworkHandler::CommandType::Head: {
+        case CommandType::Movement: {
           switch(networkHandler.command()) {
-            case NetworkHandler::HeadCommand::RelMove: {
+            case MovementCommand::RelMove: {
               if(networkHandler.dataSize() != 0) {
-                int32_t x = readInt32(networkHandler.data(), 0);
-                int32_t y = readInt32(networkHandler.data(), 4);
-                float speed = (float)readInt16(networkHandler.data(), 8) / 327.0;
-                float acceleration = (float)readInt16(networkHandler.data(), 10) / 327.0;
+                int32_t x = getInt32(networkHandler.data(), 0);
+                int32_t y = getInt32(networkHandler.data(), 4);
+                float speed = (float)getInt16(networkHandler.data(), 8) / 327.0;
+                float acceleration = (float)getInt16(networkHandler.data(), 10) / 327.0;
                 Serial.print("Moving rel to X: ");Serial.print(x); Serial.print(" Y:");Serial.print(y); Serial.print(" Speed:"); Serial.print(speed); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
                 head.moveRelative(x, y, speed, acceleration);
               }
 
               break;
             }
-            case NetworkHandler::HeadCommand::AbsMove: {
+            case MovementCommand::AbsMove: {
               if(networkHandler.dataSize() != 0) {
-                int32_t x = readInt32(networkHandler.data(), 0);
-                int32_t y = readInt32(networkHandler.data(), 4);
-                float speed = (float)readInt16(networkHandler.data(), 8) / 327.0;
-                float acceleration = (float)readInt16(networkHandler.data(), 10) / 327.0;
+                int32_t x = getInt32(networkHandler.data(), 0);
+                int32_t y = getInt32(networkHandler.data(), 4);
+                float speed = (float)getInt16(networkHandler.data(), 8) / 327.0;
+                float acceleration = (float)getInt16(networkHandler.data(), 10) / 327.0;
                 Serial.print("Moving abs to X: ");Serial.print(x); Serial.print(" Y:");Serial.print(y); Serial.print(" Speed:"); Serial.print(speed); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
                 head.moveToXY(x, y, speed, acceleration);
               }
               break;
             }
-            case NetworkHandler::HeadCommand::MoveSpeed: {
+            case MovementCommand::MoveSpeed: {
               if(networkHandler.dataSize() != 0) {
-                float speedX = (float)readInt16(networkHandler.data(), 0) / 327.0;
-                float speedY = (float)readInt16(networkHandler.data(), 2) / 327.0;
-                float acceleration = (float)readInt16(networkHandler.data(), 4) / 327.0;
+                float speedX = (float)getInt16(networkHandler.data(), 0) / 327.0;
+                float speedY = (float)getInt16(networkHandler.data(), 2) / 327.0;
+                float acceleration = (float)getInt16(networkHandler.data(), 4) / 327.0;
                 Serial.print("Moving speed at X: ");Serial.print(speedX); Serial.print("% Y:");Serial.print(speedY); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
                 head.moveXY(speedX, speedY, acceleration);
               }
               break;
             }
-            case NetworkHandler::HeadCommand::Stop: {
-              float acceleration = (float)readInt16(networkHandler.data(), 0) / 327.0;
+            case MovementCommand::Stop: {
+              float acceleration = (float)getInt16(networkHandler.data(), 0) / 327.0;
               Serial.print("Stopping head at Accel:");Serial.print(acceleration); Serial.println("%");
               head.stop(acceleration);
               break;
@@ -312,33 +347,32 @@ void loop() {
           }
           break;
         }
-        case NetworkHandler::CommandType::Lanc: {
+        case CommandType::Lanc: {
           switch(networkHandler.command()) {
-            case NetworkHandler::LancCommand::Zoom: {
-              Serial.println("Sending LANC command: Zoom " + (String)networkHandler.value());
-              lanc.Zoom(networkHandler.value());
+            case LancCommand::Zoom: {
+              passNetworkDataToSerial();
               break;
             }
-            case NetworkHandler::LancCommand::Focus: {
-              Serial.println("Sending LANC command: Focus " + (String)networkHandler.value());
-              lanc.Focus(networkHandler.value());
+            case LancCommand::Focus: {
+              passNetworkDataToSerial();
               break;
             }
-            case NetworkHandler::LancCommand::AutoFocus: {
-              Serial.println("Sending LANC command: Auto Focus " + (String)networkHandler.value());
-              lanc.AutoFocus();
+            case LancCommand::AutoFocus: {
+              passNetworkDataToSerial();
+
               break;
             }
           }
           break;
         }
-        case NetworkHandler::CommandType::Control: {
+        case CommandType::Control: {
           switch(networkHandler.command()) {
-            case NetworkHandler::ControlCommand::Reboot: {
+            case ControlCommand::Reboot: {
               Serial.println("Network request to reboot. Will reboot in 5 seconds");
               leftLCD.showText("Reboot", "", "Will reboot in 5 seconds", "Requested from network");
               rightLCD.showText("Reboot", "", "Will reboot in 5 seconds", "Requested from network");
-              networkHandler.sendCommand(NetworkHandler::CommandType::Control, NetworkHandler::ControlCommand::Reboot, 0);
+              networkHandler.sendCommand(CommandType::Control, ControlCommand::Reboot, 0);
+              passNetworkDataToSerial();
               delay(5000);
               resetFunc();
               break;
@@ -349,33 +383,39 @@ void loop() {
       }
     }
 
-    // if(head.isMoving()) {
-    //   while(head.isMoving()) {
-    //     if(controlPanel.isStopButtonPressed()) {
-    //       //Stop
-    //       head.stop(20000.0);
-    //     }
+    //Process incoming serial from the lanc control
+    if(Serial1.available()) {
+        while(Serial1.available()) {
+          Serial.write(Serial1.read());
+        }
+    }
 
-    //     if(!head.movingToPosition()) {
-    //       processJoyStick();
-    //     }
+    if(head.isMoving()) {
+      while(head.isMoving()) {
+        if(controlPanel.isStopButtonPressed()) {
+          //Stop
+          head.stop(20000.0);
+        }
 
-    //     if(head.isMovingRelative()) {
-    //       head.setMaxSpeed(controlPanel.getPotPercentage(ControlPanel::Pot::Right));
-    //     }
+        if(!head.movingToPosition()) {
+          //processJoyStick();
+        }
 
-    //     //head.run();
-    //   }
-    // }
+        if(head.isMovingRelative()) {
+          head.setMaxSpeed(controlPanel.getPotPercentage(ControlPanel::Pot::Right));
+        }
 
-    //Update the LCDs
+        head.run();
+      }
+    }
+
+    // //Update the LCDs
     leftLCD.setTextToShow("Focus", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "NOT USED", "NOT USED");
     rightLCD.setTextToShow("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText);
     //leftLCD.update();
     rightLCD.update();
 
-    //processJoyStick();
+    // //processJoyStick();
     checkButtons();
     head.run();
-    //lanc.loop();
 }

@@ -27,7 +27,7 @@
 // #define HEAD_MEM_ADDR CONTROLPANEL_MEM_ADDR + CONTROLPANEL_MEM_ALLOC
 #define END_OF_MEMORY CONTROLPANEL_MEM_ADDR + CONTROLPANEL_MEM_ALLOC
 
-
+#include "../globals.h"
 #include "lcd.h"
 
 //LCD Settings
@@ -37,9 +37,7 @@ LCD rightLCD(0x3D);
 #include "joystick.h"
 #include "controlPanel.h"
 #include "head.h"
-// #include "lancHandler.cpp"
 #include "networkHandler.cpp"
-#include "LibLanc/LibLanc.h"
 
 //JoyStick Settings
 JoyStick rightJoyStick(A5, A6, A7, true, true, false, RIGHTJOY_MEM_ADDR);
@@ -52,9 +50,6 @@ ControlPanel controlPanel(22, A0, A1, CONTROLPANEL_MEM_ADDR);
 Stepper xStepper(AccelStepper(AccelStepper::DRIVER, 3, 2), 46, 0, 1000, 50, 26000, 1);
 Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 6), 48, 1, 2000, 50, 6500, 1);
 Head head(xStepper, yStepper);
-
-//Lanc settings
-Lanc lanc(8, 9);
 
 //Network settings
 byte mac[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };

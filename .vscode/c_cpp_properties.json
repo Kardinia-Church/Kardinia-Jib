@@ -8,7 +8,6 @@
             "includePath": [
                 "c:/Users/Hayden/Documents/KardiniaChurch/Projects/Kardinia-Jib/include",
                 "c:/Users/Hayden/Documents/KardiniaChurch/Projects/Kardinia-Jib/src",
-                "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                 "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                 "c:/Users/Hayden/Documents/KardiniaChurch/Projects/Kardinia-Jib/.pio/libdeps/controlPanel/Ethernet/src",
                 "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
@@ -17,6 +16,7 @@
                 "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/variants/mega",
                 "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                 "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                 "C:/Users/Hayden/.platformio/packages/tool-unity",
                 ""
             ],
@@ -25,7 +25,6 @@
                 "path": [
                     "c:/Users/Hayden/Documents/KardiniaChurch/Projects/Kardinia-Jib/include",
                     "c:/Users/Hayden/Documents/KardiniaChurch/Projects/Kardinia-Jib/src",
-                    "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                     "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                     "c:/Users/Hayden/Documents/KardiniaChurch/Projects/Kardinia-Jib/.pio/libdeps/controlPanel/Ethernet/src",
                     "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
@@ -34,6 +33,7 @@
                     "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/variants/mega",
                     "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                     "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "C:/Users/Hayden/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                     "C:/Users/Hayden/.platformio/packages/tool-unity",
                     ""
                 ]

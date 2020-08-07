@@ -43,23 +43,25 @@ class SerialCommunication {
             delay(20); //Wait for the buffer to fill
             while(_serial->available()) {
                 int current = _serial->read();
-                if(i == 0 && current == 0x80){validCommand = true;}
+                Serial.println(current, HEX);
+                // if(i == 0 && current == 0x80){validCommand = true;}
  
-                if(validCommand) {
-                    if(i == 1){_currentType = current;}
-                    if(i == 2){_currentCommand = current;}
-                    if(i == 3){_currentValue = current;}
-                    if(i == 4) {
-                        _currentDataLength = current;
-                        for(int j = 0; j < _currentDataLength; j++){_currentData[i] = 0;}
-                    }
-                    if(i > 4) { 
-                        _currentData[i - 5] = current;
-                    }
-                }
+                // if(validCommand) {
+                //     if(i == 1){_currentType = current;}
+                //     if(i == 2){_currentCommand = current;}
+                //     if(i == 3){_currentValue = current;}
+                //     if(i == 4) {
+                //         _currentDataLength = current;
+                //         for(int j = 0; j < _currentDataLength; j++){_currentData[i] = 0;}
+                //     }
+                //     if(i > 4) { 
+                //         _currentData[i - 5] = current;
+                //     }
+                // }
 
-                i++;
+                // i++;
             }
+            return true;
         }
 
         return validCommand;

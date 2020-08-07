@@ -25,32 +25,9 @@ Add encription to the packet using the specficied password
 #include <SPI.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
+#include "../globals.h"
 
 class NetworkHandler {
-    public:
-    enum CommandType {
-        Lanc,
-        Head,
-        Control
-    };
-
-    enum LancCommand {
-        Zoom,
-        Focus,
-        AutoFocus
-    };
-
-    enum ControlCommand {
-        Reboot
-    };
-
-    enum HeadCommand {
-        RelMove,
-        AbsMove,
-        MoveSpeed,
-        Stop
-    };
-
     private:
     bool _dhcpMode = false;
     byte _mac;
