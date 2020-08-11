@@ -30,10 +30,10 @@ Add encription to the packet using the specficied password
 class NetworkHandler {
     private:
     bool _dhcpMode = false;
-    byte _mac;
+    byte *_mac;
     IPAddress _ip;
-    IPAddress _gateway;
-    IPAddress _subnet;
+    IPAddress *_gateway;
+    IPAddress *_subnet;
     int _incomingPort;
     int _outgoingPort;
     EthernetUDP _udp;
@@ -48,14 +48,15 @@ class NetworkHandler {
     int _data[64];
 
     public:
-    NetworkHandler(int id, int incomingPort, int outgoingPort, String password, byte mac) {
+    NetworkHandler(int id, int incomingPort, int outgoingPort, String password, byte *mac) {
         _id = id;
         _dhcpMode = true;
         _incomingPort = incomingPort;
         _outgoingPort = outgoingPort;
         _password = password;
+        _mac = mac;
     };
-    NetworkHandler(int id, int incomingPort, int outgoingPort, String password, byte mac, IPAddress ip, IPAddress gateway, IPAddress subnet) {
+    NetworkHandler(int id, int incomingPort, int outgoingPort, String password, byte *mac, IPAddress ip) {
         _dhcpMode = false;
         _id = id;
         _incomingPort = incomingPort;
@@ -63,12 +64,11 @@ class NetworkHandler {
         _password = password;
         _mac = mac;
         _ip = ip;
-        _gateway = gateway;
-        _subnet = subnet;
     };
 
     //Getters / Setters
     IPAddress localIP() {return Ethernet.localIP();}
+    String localIPString() {return "" + (String)Ethernet.localIP()[0] + "." + (String)Ethernet.localIP()[1] + "." + (String)Ethernet.localIP()[2] + "." + (String)Ethernet.localIP()[3];}
     int incomingPort() {return _incomingPort;}
     int outgoingPort() {return _outgoingPort;}
     IPAddress getBroadcastAddress() {return IPAddress(Ethernet.localIP()[0], Ethernet.localIP()[1], Ethernet.localIP()[2], 255);}
@@ -84,7 +84,7 @@ class NetworkHandler {
             if(Ethernet.begin(_mac) == 0){return false;}
         }
         else {
-            Ethernet.begin(_mac, _ip, _gateway, _subnet);
+            Ethernet.begin(_mac, _ip);
         } 
         _udp.begin(_incomingPort);
 
@@ -108,6 +108,41 @@ class NetworkHandler {
     //Send a broadcast message
     void sendMessage(int dataSize, int *data) {
         sendMessage(getBroadcastAddress(), dataSize, data);
+    }
+
+    //Are we connected to network?
+    bool connected() {
+        return Ethernet.linkStatus() != LinkOFF && Ethernet.localIP() != IPAddress(0,0,0,0);
+    }
+
+    //Ping the server to check for connection. This is blocking!
+    bool serverConnected() {
+        unsigned long timeout = millis() + 5000;
+        while(timeout > millis()) {
+            sendCommand(CommandType::Control, ControlCommand::Ping, 0);
+
+            uint8_t packetSize = _udp.parsePacket();
+            if(packetSize) {
+                _udp.read(_packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+
+                //Check KJIB flag
+                if(_packetBuffer[0] != 0x4B){return false;}
+                if(_packetBuffer[1] != 0x4A){return false;}
+                if(_packetBuffer[2] != 0x49){return false;}
+                if(_packetBuffer[3] != 0x42){return false;}
+                if(_packetBuffer[4] != _id){return false;}
+
+                //Check command
+                if(_packetBuffer[5] != CommandType::Control){return false;}
+                if(_packetBuffer[6] != ControlCommand::Ping){return false;}
+                if(_packetBuffer[7] != 0){return false;}
+                if(_packetBuffer[8] != 0){return false;}
+
+                return true;
+            }
+
+            delay(1000);
+        }
     }
 
     //Send a command

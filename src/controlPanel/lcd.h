@@ -16,8 +16,31 @@ class LCD {
     private:
     int _addr;
     LCD_SSD1306 _LCD;
-    String _lines[4] = {"", "", "", ""};
-    String _displayedLines[4] = {"", "", "", ""};
+    String _lines[4] = {"**$$", "**$$", "**$$", "**$$"};
+    int _fonts[4] = {FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM};
+    String _displayedLinesText[4] = {"", "", "", ""};
+    int _displayedLinesFont[4] = {FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM};
+    int _yPos = 0;
+    int _currentLine = 0;
+
+    int getFontHeight(int font) {
+        switch(font) {
+            case FONT_SIZE_SMALL: {return 1;}
+            case FONT_SIZE_MEDIUM: {return 2;}
+            case FONT_SIZE_LARGE: {return 2;}
+            case FONT_SIZE_XLARGE: {return 2;}
+        }
+    }
+
+    String getBlankingString(int font) {
+        switch(font) {
+            case FONT_SIZE_SMALL: {return "                      ";}
+            case FONT_SIZE_MEDIUM: {return "               ";}
+            case FONT_SIZE_LARGE: {return "               ";}
+            case FONT_SIZE_XLARGE: {return "               ";}
+        } 
+    }
+
     public:
     LCD(int address) {
         _addr = address;
@@ -40,7 +63,19 @@ class LCD {
         delay(100);
     }
 
-    void clear() {_LCD.clear();}
+    void clear() {
+        _displayedLinesText[0] = "**$$";
+        _displayedLinesText[1] = "**$$";
+        _displayedLinesText[2] = "**$$";
+        _displayedLinesText[3] = "**$$";
+        _displayedLinesFont[0] = 0;
+        _displayedLinesFont[1] = 0;
+        _displayedLinesFont[2] = 0;
+        _displayedLinesFont[3] = 0;
+        _currentLine = 0;
+        _yPos = 0;
+        _LCD.clear();
+    }
 
     //Setup the lcd
     void initalize() {
@@ -62,19 +97,7 @@ class LCD {
         _LCD.println(version);
     }
 
-    //Show an error
-    void showError(String errorLine1="Unknown", String errorLine2="", String errorLine3="") {
-        _LCD.clear();
-        _LCD.setFontSize(FONT_SIZE_LARGE);
-        _LCD.println("Error!");
-        _LCD.setFontSize(FONT_SIZE_MEDIUM);
-        _LCD.println(errorLine1);
-        _LCD.setFontSize(FONT_SIZE_SMALL);
-        _LCD.println(errorLine2);
-        _LCD.setFontSize(FONT_SIZE_SMALL);
-        _LCD.println(errorLine3);
-    }
-
+    //Set the text that will be shown on the next update()
     void setTextToShow(String line1="", String line2="", String line3="", String line4=""){
         _lines[0] = line1;
         _lines[1] = line2;
@@ -82,53 +105,61 @@ class LCD {
         _lines[3] = line4;
     }
 
-    //Update the display
-    unsigned long updateMillis = 0;
-    int yPos = 0;
-    int currentLine = 0;
-    void update() {
-        int height = 0;
-        if(currentLine < 2){height = 2;}else{height = 1;}
-        if(_lines[currentLine] != _displayedLines[currentLine]) {
-            if(currentLine < 2){_LCD.setFontSize(FONT_SIZE_MEDIUM);}else{_LCD.setFontSize(FONT_SIZE_SMALL);}
-            _LCD.setCursor(10, yPos);
-            _LCD.println(_lines[currentLine]);
-            _displayedLines[currentLine] = _lines[currentLine];
-        }
-        currentLine++;
-        yPos += height;
-        if(currentLine == 1) {yPos += 1;}
-        if(currentLine >= 4){currentLine = 0; yPos = 0;}
+    //Set the text that will be shown on the next update()
+    void setTextToShow(String line1, String line2, String line3, String line4, int fontSize1, int fontSize2, int fontSize3, int fontSize4){
+        _lines[0] = line1;
+        _lines[1] = line2;
+        _lines[2] = line3;
+        _lines[3] = line4;
+        _fonts[0] = fontSize1;
+        _fonts[1] = fontSize2;
+        _fonts[2] = fontSize3;
+        _fonts[3] = fontSize4;
     }
 
     //Show text
     void showText(String line1="", String line2="", String line3="", String line4="") {
-        _LCD.clear();
-        _LCD.setFontSize(FONT_SIZE_MEDIUM);
-        _LCD.println(line1);
-        _LCD.setFontSize(FONT_SIZE_MEDIUM);
-        _LCD.println(line2);
-        _LCD.setFontSize(FONT_SIZE_SMALL);
-        _LCD.println(line3);
-        _LCD.setFontSize(FONT_SIZE_SMALL);
-        _LCD.println(line4);
+        _currentLine = 0;
+        _yPos = 0;
+        setTextToShow(line1, line2, line3, line4, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+        while(update());
     }
 
-    //Show a value
-    String _previousValue = "";
-    String _previousTitle = "";
-    void showValue(String title, String value) {
-      if(_previousTitle != title || _previousValue != value) {      
-        _LCD.clear();
-        _LCD.setCursor(0, 0);
-        _LCD.setFontSize(FONT_SIZE_XLARGE);
-        _LCD.println(title);
-        _LCD.setCursor(0, 3);
-        _LCD.setFontSize(FONT_SIZE_LARGE);
-        _LCD.println(value);
-        _previousTitle = title;
-        _previousValue = value;
-      }
+    //Show text
+    void showText(String line1, String line2, String line3, String line4, int fontSize1, int fontSize2, int fontSize3, int fontSize4) {
+        _currentLine = 0;
+        _yPos = 0;
+        setTextToShow(line1, line2, line3, line4, fontSize1, fontSize2, fontSize3, fontSize4);
+        while(update());
+    }
+
+    //Show an error
+    void showError(String errorLine1="Unknown", String errorLine2="", String errorLine3="") {
+        _currentLine = 0;
+        _yPos = 0;
+        setTextToShow("Error!", errorLine1, errorLine2, errorLine3, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+        while(update());
+    }
+    
+    //Update the display
+    bool update() {
+        if(_lines[_currentLine] != _displayedLinesText[_currentLine] || _fonts[_currentLine] != _displayedLinesFont[_currentLine]) {
+            //Clear the line first
+            _LCD.setFontSize(_displayedLinesFont[_currentLine]);
+            _LCD.setCursor(0, _yPos);
+            _LCD.print(getBlankingString(_displayedLinesFont[_currentLine]));
+
+            if(_fonts[_currentLine] != _displayedLinesFont[_currentLine]) { _displayedLinesFont[_currentLine] = _fonts[_currentLine];}
+            if(_lines[_currentLine] != _displayedLinesText[_currentLine]) { _displayedLinesText[_currentLine] = _lines[_currentLine];}
+            _LCD.setFontSize(_fonts[_currentLine]);
+            _LCD.setCursor(10, _yPos);
+            _LCD.println(_lines[_currentLine]);
+        }
+
+        _yPos += getFontHeight(_fonts[_currentLine]);
+        _currentLine++;
+        if(_currentLine >= 4){_currentLine = 0; _yPos = 0;}
+        return _currentLine != 0;
     }
 };
 

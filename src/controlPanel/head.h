@@ -190,12 +190,12 @@ class Stepper {
     //Reset the stepper to the minumum value, will return true when at home position
     Stepper::HomeStatus reset() {
         //Start the home proceedure if it hasn't started
-        if(_stepper.targetPosition() != -100 && _stepper.targetPosition() != _homePosition) {
+        if(_stepper.targetPosition() != -(_maxPosition + 100) && _stepper.targetPosition() != _homePosition) {
             _stepper.setCurrentPosition(_maxPosition);
-            _stepper.moveTo(-100);
+            _stepper.moveTo(-(_maxPosition + 100));
         }
 
-        if(_stepper.targetPosition() == -100) {
+        if(_stepper.targetPosition() == -(_maxPosition + 100)) {
             //If we are currently moving toward the limit switch
             if(!isAtLimit(LimitType::Min)) {
                 //Check if we have failed to home

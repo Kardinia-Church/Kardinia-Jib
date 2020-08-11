@@ -52,10 +52,9 @@ Stepper yStepper(AccelStepper(AccelStepper::DRIVER, 5, 6), 48, 1, 2000, 50, 6500
 Head head(xStepper, yStepper);
 
 //Network settings
-byte mac[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip(10, 0, 0, 8);
-IPAddress gateway(10, 0, 0, 138);
-IPAddress subnet(255, 255, 255, 0);
-NetworkHandler networkHandler(0, 3204, 3042, "tricaster", mac, ip, gateway, subnet);
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+IPAddress ip(10, 4, 10, 33);
+NetworkHandler networkHandler(0, 3204, 3032, "tricaster", mac, ip);
+//NetworkHandler networkHandler(0, 3204, 3032, "tricaster", mac);
 
 #endif

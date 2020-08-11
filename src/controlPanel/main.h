@@ -13,6 +13,7 @@
 #define SOFTWARE_VERSION_MINOR 0
 
 String _errorText = "";
+bool networkMovingSpeed = false;
 
 //Heartbeat
 unsigned long heartBeat = 0;
@@ -50,17 +51,17 @@ void showDebugLCD() {
 
 //Reset the memory pool to defaults
 void resetMemory() {
-  // for(int i = 0; i < END_OF_MEMORY; i++) {
-  //   EEPROM.write(i, 255);
-  // }
+  for(int i = 0; i < END_OF_MEMORY; i++) {
+    EEPROM.write(i, 255);
+  }
 
-  // //Write the lead and end of memory for check
-  // EEPROM.write(0, MEMORY_LEAD_0);
-  // EEPROM.write(1, MEMORY_LEAD_1);
-  // EEPROM.write(2, MEMORY_LEAD_2);
-  // EEPROM.write(3, MEMORY_LEAD_3);
-  // EEPROM.write(END_OF_MEMORY, MEMORY_END_0);
-  // EEPROM.write(END_OF_MEMORY + 1, MEMORY_END_1);
+  //Write the lead and end of memory for check
+  EEPROM.write(0, MEMORY_LEAD_0);
+  EEPROM.write(1, MEMORY_LEAD_1);
+  EEPROM.write(2, MEMORY_LEAD_2);
+  EEPROM.write(3, MEMORY_LEAD_3);
+  EEPROM.write(END_OF_MEMORY, MEMORY_END_0);
+  EEPROM.write(END_OF_MEMORY + 1, MEMORY_END_1);
 }
 
 //Print the memory to the serial monitor for debug
@@ -86,7 +87,7 @@ void setup() {
     leftLCD.initalize();
     rightLCD.initalize();
     leftLCD.showStartup(String("Version: ") + SOFTWARE_VERSION_MAJOR + String(".") + SOFTWARE_VERSION_MINOR + String("\n(") + __DATE__ + String(")"));
-    rightLCD.showText("Press for:", "< Cal , Test >", "", "");
+    rightLCD.showText("Press for:", "", "", "< Cal , Test >", FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
     long timeout = millis();
     bool calibrate = false;
     while(timeout + 3000 > millis()) {
@@ -166,19 +167,33 @@ void setup() {
     // } 
 
     //Connect to network
+    rightLCD.clear();
+    rightLCD.showText("Network", "Connecting", "", "", FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
     Serial.print("Attempting connection to network...");
     if(networkHandler.begin()) {
-      Serial.print(" Success! IPAddress: ");
-      Serial.print(networkHandler.localIP());
-      Serial.print(":");
-      Serial.println(networkHandler.incomingPort());
+      if(networkHandler.serverConnected()) {
+        rightLCD.clear();
+        rightLCD.showText("Network", "Connected!", networkHandler.localIPString(), "Port:" + (String)networkHandler.incomingPort() + "," + (String)networkHandler.outgoingPort(), FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+        Serial.print(" Success! IPAddress: ");
+        Serial.print(networkHandler.localIP());
+        Serial.print(":");
+        Serial.println((String)networkHandler.incomingPort() + "," + (String)networkHandler.outgoingPort());
+      }
+      else {
+        rightLCD.clear();
+        rightLCD.showText("Network", "Error", "Failed to talk", "to server", FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+        Serial.print(" Error failed to communicate to server. IPAddress: ");
+        Serial.print(networkHandler.localIP());
+        Serial.print(":");
+        Serial.println((String)networkHandler.incomingPort() + "," + (String)networkHandler.outgoingPort());
+      }
     }
     else {
+      rightLCD.showText("Network", "Failed.", "Check connection.", "", FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
       Serial.println(" Failed");
     }
    
     //Begin homing of the head
-    rightLCD.clear();
     if(head.reset() != Stepper::HomeStatus::Complete){
       //Failed homing
       _errorText += "Home Failed!";
@@ -191,50 +206,8 @@ void setup() {
     rightLCD.clear();
 }
 
-//Check the buttons for speicific moves
-void checkButtons() {
-    if(controlPanel.isButtonsPressed().buttonStates[0][0]) {
-      //Centre head
-      head.goHome(100.0, 500.0);
-    }
-    if(controlPanel.isButtonsPressed().buttonStates[0][1]) {
-      //Reboot
-      leftLCD.showText("Reboot", "", "Are you sure?", "Keep holding");
-      delay(5000);
-      if(controlPanel.isButtonsPressed().buttonStates[0][1]) {
-        resetFunc();
-      }
-      leftLCD.clear();
-      leftLCD.setTextToShow("", "", "", "");
-      leftLCD.update();
-    }
-    if(controlPanel.isButtonsPressed().buttonStates[2][0]) {
-      //Pan left 45 degreesish
-      head.moveRelative(1000000, 0, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
-    }
-    if(controlPanel.isButtonsPressed().buttonStates[1][0]) {
-      //Pan right 45 degreesish
-      head.moveRelative(-1000000, 0, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
-    }
-    if(controlPanel.isButtonsPressed().buttonStates[1][1]) {
-      //Tilt up 45 degreesish
-      head.moveRelative(0, 10000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
-    }
-    if(controlPanel.isButtonsPressed().buttonStates[2][1]) {
-      //Tilt down 45 degreesish
-      head.moveRelative(0, -1000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
-    }
-    if(controlPanel.isButtonsPressed().buttonStates[1][2]) {
-      //Move both tilt and pan
-      head.moveRelative(10000000, 10000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
-    }
-    if(controlPanel.isButtonsPressed().buttonStates[2][2]) {
-      //Move both tilt and pan
-      head.moveRelative(-1000000, -1000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
-    }
-}
-
 void processJoyStick() {
+  if(networkMovingSpeed == true){return;}
   float acceleration = 100.0;
   float globalSpeed = controlPanel.getPotPercentage(ControlPanel::Pot::Right);
   float xSpeed = (rightJoyStick.getPercentage(JoyStick::Axis::X) / 100.0) * (globalSpeed / 100.0);
@@ -295,12 +268,75 @@ int32_t getInt32(int *buffer, int index) {
   return conv.integer;
 }
 
-//Main loop
-unsigned long test = 0;
-void loop() {
-    blinkDebugLed();
+//Check the buttons for speicific moves
+void checkButtons() {
+    if(controlPanel.isButtonsPressed().buttonStates[0][0]) {
+      //Centre head
+      head.goHome(100.0, 500.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[0][1]) {
+      //Reboot
+      leftLCD.clear();
+      leftLCD.showText("To reboot", "Keep holding", "", "", FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+      rightLCD.clear();
+      rightLCD.showText("Info", String("Ver:") + SOFTWARE_VERSION_MAJOR + String(".") + SOFTWARE_VERSION_MINOR, String("Date: ") + __DATE__, String("IP: ") + networkHandler.localIPString() + ":" + networkHandler.incomingPort() + "," + networkHandler.outgoingPort(), FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+      delay(5000);
+      if(controlPanel.isButtonsPressed().buttonStates[0][1]) {
+        resetFunc();
+      }
 
-    //Process the incoming network command if there is one
+      leftLCD.clear();
+      rightLCD.clear();
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[2][0]) {
+      head.moveRelative(1000000, 0, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[1][0]) {
+      head.moveRelative(-1000000, 0, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[1][1]) {
+      head.moveRelative(0, 10000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[2][1]) {
+      head.moveRelative(0, -1000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[1][2]) {
+      //Move both tilt and pan
+      head.moveRelative(10000000, 10000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+    if(controlPanel.isButtonsPressed().buttonStates[2][2]) {
+      //Move both tilt and pan
+      head.moveRelative(-1000000, -1000000, controlPanel.getPotPercentage(ControlPanel::Pot::Right), 20000.0);
+    }
+
+    // 0 0   0 1
+    // 0 0   0 0
+    // 0 0   0 0
+    // Focus In
+    if(controlPanel.isButtonsPressed().buttonStates[3][0]) {
+      sendFocus(0);
+    }
+
+    // 0 0   0 0
+    // 0 0   0 1
+    // 0 0   0 0
+    // Focus Out
+    if(controlPanel.isButtonsPressed().buttonStates[3][1]) {
+      sendFocus(1);
+    }
+
+    // 0 0   0 0
+    // 0 0   0 0
+    // 0 0   0 1
+    // Focus Auto
+    if(controlPanel.isButtonsPressed().buttonStates[3][2]) {
+      sendAutoFocus();
+    }
+}
+
+//Process the network
+void processNetwork() {
+  //Process the incoming network command if there is one
     if(networkHandler.process()) {
       switch(networkHandler.type()) {
         case CommandType::Movement: {
@@ -312,6 +348,7 @@ void loop() {
                 float speed = (float)getInt16(networkHandler.data(), 8) / 327.0;
                 float acceleration = (float)getInt16(networkHandler.data(), 10) / 327.0;
                 Serial.print("Moving rel to X: ");Serial.print(x); Serial.print(" Y:");Serial.print(y); Serial.print(" Speed:"); Serial.print(speed); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
+                networkMovingSpeed = false;
                 head.moveRelative(x, y, speed, acceleration);
               }
 
@@ -324,6 +361,7 @@ void loop() {
                 float speed = (float)getInt16(networkHandler.data(), 8) / 327.0;
                 float acceleration = (float)getInt16(networkHandler.data(), 10) / 327.0;
                 Serial.print("Moving abs to X: ");Serial.print(x); Serial.print(" Y:");Serial.print(y); Serial.print(" Speed:"); Serial.print(speed); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
+                networkMovingSpeed = false;
                 head.moveToXY(x, y, speed, acceleration);
               }
               break;
@@ -334,6 +372,7 @@ void loop() {
                 float speedY = (float)getInt16(networkHandler.data(), 2) / 327.0;
                 float acceleration = (float)getInt16(networkHandler.data(), 4) / 327.0;
                 Serial.print("Moving speed at X: ");Serial.print(speedX); Serial.print("% Y:");Serial.print(speedY); Serial.print("% Accel:"); Serial.print(acceleration); Serial.println("%");
+                networkMovingSpeed = speedX + speedY != 0;
                 head.moveXY(speedX, speedY, acceleration);
               }
               break;
@@ -341,6 +380,7 @@ void loop() {
             case MovementCommand::Stop: {
               float acceleration = (float)getInt16(networkHandler.data(), 0) / 327.0;
               Serial.print("Stopping head at Accel:");Serial.print(acceleration); Serial.println("%");
+              networkMovingSpeed = false;
               head.stop(acceleration);
               break;
             }
@@ -382,8 +422,14 @@ void loop() {
         }
       }
     }
+}
 
-    //Process incoming serial from the lanc control
+//Main loop
+unsigned long test = 0;
+void loop() {
+    blinkDebugLed();
+
+    //Send incoming serial debug messages to this serial monitor
     if(Serial1.available()) {
         while(Serial1.available()) {
           Serial.write(Serial1.read());
@@ -397,8 +443,10 @@ void loop() {
           head.stop(20000.0);
         }
 
+        processNetwork();
+
         if(!head.movingToPosition()) {
-          //processJoyStick();
+          processJoyStick();
         }
 
         if(head.isMovingRelative()) {
@@ -410,12 +458,13 @@ void loop() {
     }
 
     // //Update the LCDs
-    leftLCD.setTextToShow("Focus", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "NOT USED", "NOT USED");
-    rightLCD.setTextToShow("Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText);
-    //leftLCD.update();
+    leftLCD.setTextToShow("Zoom Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+    rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+    leftLCD.update();
     rightLCD.update();
 
-    // //processJoyStick();
+    processNetwork();
+    processJoyStick();
     checkButtons();
     head.run();
 }

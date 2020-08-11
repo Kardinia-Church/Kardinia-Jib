@@ -14,7 +14,8 @@ enum LancCommand {
 };
 
 enum ControlCommand {
-    Reboot
+    Reboot,
+    Ping
 };
 
 enum MovementCommand {
