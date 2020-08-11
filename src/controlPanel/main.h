@@ -12,7 +12,7 @@
 #define SOFTWARE_VERSION_MAJOR 3
 #define SOFTWARE_VERSION_MINOR 0
 
-String _errorText = "";
+String errorMessages[2] = {"", ""};
 bool networkMovingSpeed = false;
 
 //Heartbeat
@@ -21,6 +21,19 @@ void blinkDebugLed() {
   if(millis() - heartBeat >= 500) {
     heartBeat = millis();
     digitalWrite(DEBUG_LED, !digitalRead(DEBUG_LED));
+  }
+}
+
+void addErrorMessage(String error) {
+  for(int i = 0; i < 2; i++) {
+    if(errorMessages[i] == error){break;}
+    else if(errorMessages[i] == "") {errorMessages[i] = error; break;}
+  }
+}
+
+void removeErrorMessage(String error) {
+  for(int i = 0; i < 2; i++) {
+    if(errorMessages[i] == error){errorMessages[i] = ""; break;}
   }
 }
 
@@ -186,21 +199,22 @@ void setup() {
         Serial.print(networkHandler.localIP());
         Serial.print(":");
         Serial.println((String)networkHandler.incomingPort() + "," + (String)networkHandler.outgoingPort());
+        addErrorMessage("Server error");
       }
     }
     else {
       rightLCD.showText("Network", "Failed.", "Check connection.", "", FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
       Serial.println(" Failed");
+      addErrorMessage("Network failed");
     }
    
     //Begin homing of the head
     if(head.reset() != Stepper::HomeStatus::Complete){
       //Failed homing
-      _errorText += "Home Failed!";
+      addErrorMessage("Home failed");
     }
 
-    if(_errorText == ""){Serial.println("Setup Complete");}
-    else {Serial.println("Setup Error - " + _errorText);}
+    Serial.println("Setup Complete");
 
     leftLCD.clear();
     rightLCD.clear();
@@ -424,6 +438,17 @@ void processNetwork() {
     }
 }
 
+//Check every so often if we're still connected to the server. 0 if no check, 1 if success, 2 if fail
+unsigned long nextCheck = 0;
+int checkNetwork() {
+  if(nextCheck < millis()) {
+    nextCheck = millis() + 30000; //Check every 60 seconds
+    return networkHandler.serverConnected() ? 2 : 1;
+  }
+
+  return 0;
+}
+
 //Main loop
 unsigned long test = 0;
 void loop() {
@@ -457,9 +482,11 @@ void loop() {
       }
     }
 
-    // //Update the LCDs
+    //Update the LCDs
+    if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
+
     leftLCD.setTextToShow("Zoom Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
-    rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", "", _errorText, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+    rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", errorMessages[1], errorMessages[0], FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
     leftLCD.update();
     rightLCD.update();
 

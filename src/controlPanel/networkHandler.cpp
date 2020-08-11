@@ -117,7 +117,7 @@ class NetworkHandler {
 
     //Ping the server to check for connection. This is blocking!
     bool serverConnected() {
-        unsigned long timeout = millis() + 5000;
+        unsigned long timeout = millis() + 1000;
         while(timeout > millis()) {
             sendCommand(CommandType::Control, ControlCommand::Ping, 0);
 
@@ -140,8 +140,6 @@ class NetworkHandler {
 
                 return true;
             }
-
-            delay(1000);
         }
     }
 
