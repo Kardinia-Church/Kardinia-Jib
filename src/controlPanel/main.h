@@ -483,7 +483,7 @@ void loop() {
     }
 
     //Update the LCDs
-    if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
+    // if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
 
     leftLCD.setTextToShow("Zoom Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
     rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", errorMessages[1], errorMessages[0], FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
