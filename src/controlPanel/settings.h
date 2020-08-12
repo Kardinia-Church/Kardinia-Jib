@@ -40,7 +40,7 @@ LCD rightLCD(0x3D);
 #include "networkHandler.cpp"
 
 //JoyStick Settings
-JoyStick rightJoyStick(A5, A6, A7, true, true, false, RIGHTJOY_MEM_ADDR);
+JoyStick rightJoyStick(A5, A6, A7, true, true, true, RIGHTJOY_MEM_ADDR);
 
 //Control panel settings
 ControlPanel controlPanel(22, A0, A1, CONTROLPANEL_MEM_ADDR);

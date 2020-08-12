@@ -131,8 +131,10 @@ void setup() {
     if(EEPROM.readByte(0) != MEMORY_LEAD_0 || EEPROM.readByte(1) != MEMORY_LEAD_1 || EEPROM.readByte(2) != MEMORY_LEAD_2 || EEPROM.readByte(3) != MEMORY_LEAD_3 ||
         EEPROM.readByte(END_OF_MEMORY) != MEMORY_END_0 || EEPROM.readByte(END_OF_MEMORY + 1) != MEMORY_END_1) {
           //Memory is not valid we need to reset it
-          Serial.println(" Not Valid. Resetting memory");
-          resetMemory();    
+          Serial.println(" Not Valid.");
+          rightLCD.showError("Invalid memory", "Please reset", "and cal");
+          leftLCD.showError("Invalid memory", "Please reset", "and cal");
+          //resetMemory();    
      }
      else {Serial.println(" Valid");}
 
@@ -152,32 +154,32 @@ void setup() {
       }
     }
 
-    // if(!rightJoyStick.checkSettings() || !controlPanel.checkSettings()) {
-    //   leftLCD.clear();
-    //   rightLCD.clear();
-    //   leftLCD.showError("Calibration", "Calibration", "is required");
-    //   rightLCD.showText("Press to begin", "Begin Cal >");
+    if(!rightJoyStick.checkSettings() || !controlPanel.checkSettings()) {
+      leftLCD.clear();
+      rightLCD.clear();
+      leftLCD.showError("Calibration", "Calibration", "is required");
+      rightLCD.showText("Press to begin", "Begin Cal >");
 
-    //   while(true) {
-    //     bool leave = false;
-    //     for(int i = 0; i < TOTAL_COLS; i++) {
-    //       if(controlPanel.isButtonsPressed().buttonStates[3][i]){leave = true;}
-    //     }
-    //     if(leave){break;}
-    //   }
+      while(true) {
+        bool leave = false;
+        for(int i = 0; i < TOTAL_COLS; i++) {
+          if(controlPanel.isButtonsPressed().buttonStates[3][i]){leave = true;}
+        }
+        if(leave){break;}
+      }
 
-    //   //If the joystick is not calibrated calibrate it
-    //   if(!rightJoyStick.checkSettings()) {
-    //     Serial.println("\nThe right joystick has invalid settings and will need to be recalibrated. Starting calibration utility...");
-    //     rightJoyStick.calibrate(leftLCD, rightLCD);
-    //   }
+      //If the joystick is not calibrated calibrate it
+      if(!rightJoyStick.checkSettings()) {
+        Serial.println("\nThe right joystick has invalid settings and will need to be recalibrated. Starting calibration utility...");
+        rightJoyStick.calibrate(leftLCD, rightLCD);
+      }
 
-    //   //If the control panel is not calibrated calibrate it
-    //   if(!controlPanel.checkSettings()) {
-    //     Serial.println("\nControl panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
-    //     controlPanel.calibrate(leftLCD, rightLCD);
-    //   }
-    // } 
+      //If the control panel is not calibrated calibrate it
+      if(!controlPanel.checkSettings()) {
+        Serial.println("\nControl panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
+        controlPanel.calibrate(leftLCD, rightLCD);
+      }
+    } 
 
     //Connect to network
     rightLCD.clear();
@@ -220,15 +222,6 @@ void setup() {
     rightLCD.clear();
 }
 
-void processJoyStick() {
-  if(networkMovingSpeed == true){return;}
-  float acceleration = 100.0;
-  float globalSpeed = controlPanel.getPotPercentage(ControlPanel::Pot::Right);
-  float xSpeed = (rightJoyStick.getPercentage(JoyStick::Axis::X) / 100.0) * (globalSpeed / 100.0);
-  float ySpeed = (rightJoyStick.getPercentage(JoyStick::Axis::Y) / 100.0) * (globalSpeed / 100.0);
-  head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
-}
-
 //Send a command out to the serial
 void sendDataToSerial(CommandType type, int command, int value, int dataSize = 0, int *data = nullptr) {
   Serial1.write(type);
@@ -257,6 +250,22 @@ void sendFocus(int direction) {
 //Send a auto focus to lanc
 void sendAutoFocus() {
   sendDataToSerial(CommandType::Lanc, LancCommand::AutoFocus, 0);
+}
+
+
+int prevZoom = 0;
+void processJoyStick() {
+  if(networkMovingSpeed == true){return;}
+  float acceleration = 100.0;
+  float globalSpeed = controlPanel.getPotPercentage(ControlPanel::Pot::Right);
+  float xSpeed = (rightJoyStick.getPercentage(JoyStick::Axis::X) / 100.0) * (globalSpeed / 100.0);
+  float ySpeed = (rightJoyStick.getPercentage(JoyStick::Axis::Y) / 100.0) * (globalSpeed / 100.0);
+  int zoom = ((rightJoyStick.getPercentage(JoyStick::Axis::Z) / 80.0) * (controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0)) * 8;
+  head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
+  if(zoom != prevZoom) {
+    prevZoom = zoom;
+    sendZoom(zoom);
+  }
 }
 
 //Pass the network poacket over serial to the lanc device for processing
@@ -485,7 +494,7 @@ void loop() {
     //Update the LCDs
     // if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
 
-    leftLCD.setTextToShow("Zoom Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Left) + "%", "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+    leftLCD.setTextToShow("Zoom Speed", (String)(int)((controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0) * 8), "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
     rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", errorMessages[1], errorMessages[0], FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
     leftLCD.update();
     rightLCD.update();
