@@ -459,7 +459,6 @@ int checkNetwork() {
 }
 
 //Main loop
-unsigned long test = 0;
 void loop() {
     blinkDebugLed();
 
@@ -471,7 +470,6 @@ void loop() {
     }
 
     if(head.isMoving()) {
-      while(head.isMoving()) {
         if(controlPanel.isStopButtonPressed()) {
           //Stop
           head.stop(20000.0);
@@ -488,19 +486,20 @@ void loop() {
         }
 
         head.run();
-      }
     }
+    else {
+      //If there is no movement
+      //Update the LCDs
+      // if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
 
-    //Update the LCDs
-    // if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
+      leftLCD.setTextToShow("Zoom Speed", (String)(int)((controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0) * 8), "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+      rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", errorMessages[1], errorMessages[0], FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+      leftLCD.update();
+      rightLCD.update();
 
-    leftLCD.setTextToShow("Zoom Speed", (String)(int)((controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0) * 8), "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
-    rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", errorMessages[1], errorMessages[0], FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
-    leftLCD.update();
-    rightLCD.update();
-
-    processNetwork();
-    processJoyStick();
-    checkButtons();
-    head.run();
+      processNetwork();
+      processJoyStick();
+      checkButtons();
+      head.run();
+    }
 }
