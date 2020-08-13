@@ -10,19 +10,28 @@
 #include <avr/interrupt.h>
 
 #define SOFTWARE_VERSION_MAJOR 3
-#define SOFTWARE_VERSION_MINOR 0
+#define SOFTWARE_VERSION_MINOR 1
+
+//#define IGNORE_CAL
 
 String errorMessages[2] = {"", ""};
 bool networkMovingSpeed = false;
+bool showDebugLcd = false;
 
-//Heartbeat
-unsigned long heartBeat = 0;
-void blinkDebugLed() {
-  if(millis() - heartBeat >= 500) {
-    heartBeat = millis();
-    digitalWrite(DEBUG_LED, !digitalRead(DEBUG_LED));
+//Send a command out to the serial
+bool waitingResponseFromLanc = false;
+void sendDataToSerial(CommandType type, int command, int value, int dataSize = 0, int *data = nullptr) {
+  waitingResponseFromLanc = true;
+  Serial1.write(type);
+  Serial1.write(command);
+  Serial1.write(value);
+  Serial1.write(dataSize);
+  for(int i = 0; i < networkHandler.dataSize(); i++) {
+    Serial1.write(data[i]);
   }
+  Serial1.println();
 }
+
 
 void addErrorMessage(String error) {
   for(int i = 0; i < 2; i++) {
@@ -34,6 +43,28 @@ void addErrorMessage(String error) {
 void removeErrorMessage(String error) {
   for(int i = 0; i < 2; i++) {
     if(errorMessages[i] == error){errorMessages[i] = ""; break;}
+  }
+}
+
+
+//Heartbeat
+unsigned long heartBeat = 0;
+void blinkDebugLed() {
+  if(millis() - heartBeat >= 500) {
+    heartBeat = millis();
+    digitalWrite(DEBUG_LED, !digitalRead(DEBUG_LED));
+
+    //Ping lanc cpu for state
+    if(digitalRead(DEBUG_LED)) {
+      if(!waitingResponseFromLanc) {
+        sendDataToSerial(CommandType::Control, ControlCommand::Ping, 0, 0);
+        removeErrorMessage("Lanc Error");
+      }
+      else {
+        //Cannot communicate
+        addErrorMessage("Lanc Error");
+      }
+    }
   }
 }
 
@@ -58,8 +89,10 @@ void showDebugLCD() {
       rightLine4 += ",";
     }
 
-    leftLCD.showText(leftLine1, leftLine2, leftLine3, leftLine4);
-    rightLCD.showText(rightLine1, rightLine2, rightLine3, rightLine4);
+    leftLCD.setTextToShow(leftLine1, leftLine2, leftLine3, leftLine4);
+    rightLCD.setTextToShow(rightLine1, rightLine2, rightLine3, rightLine4);
+    leftLCD.update();
+    rightLCD.update();
 }
 
 //Reset the memory pool to defaults
@@ -90,7 +123,7 @@ void(* resetFunc) (void) = 0;
 //Begin setup
 void setup() {
     Serial.begin(115200);
-    Serial1.begin(38400);
+    Serial1.begin(9600);
     Serial.println("Kardinia Jib Controller 2019");
     Serial.println(String("Version:") + SOFTWARE_VERSION_MAJOR + String(".") + SOFTWARE_VERSION_MINOR);
     Serial.println(String("Last Compile Date: ") + __DATE__);
@@ -106,13 +139,11 @@ void setup() {
     while(timeout + 3000 > millis()) {
       for(int i = 0; i < 3; i++) {
         if(controlPanel.isButtonsPressed().buttonStates[2][i]) {
-          resetMemory();
+          calibrate = true;
           rightLCD.showText("OK", "Calibration");
         }
         else if(controlPanel.isButtonsPressed().buttonStates[3][i]) {
-          while(true) {
-            showDebugLCD();
-          }
+          showDebugLcd = true;
         }
       }
       while (Serial.available()) {
@@ -120,7 +151,7 @@ void setup() {
         break;
       }
     }
-    if(calibrate){resetMemory ();}
+    // if(calibrate){resetMemory ();}
     rightLCD.clear();
 
     pinMode(DEBUG_LED, OUTPUT);
@@ -134,7 +165,7 @@ void setup() {
           Serial.println(" Not Valid.");
           rightLCD.showError("Invalid memory", "Please reset", "and cal");
           leftLCD.showError("Invalid memory", "Please reset", "and cal");
-          //resetMemory();    
+          resetMemory();    
      }
      else {Serial.println(" Valid");}
 
@@ -154,10 +185,11 @@ void setup() {
       }
     }
 
-    if(!rightJoyStick.checkSettings() || !controlPanel.checkSettings()) {
+    #ifndef IGNORE_CAL
+    if(!rightJoyStick.checkSettings() || calibrate) {
       leftLCD.clear();
       rightLCD.clear();
-      leftLCD.showError("Calibration", "Calibration", "is required");
+      leftLCD.showError("Joystick", "Calibration", "is required");
       rightLCD.showText("Press to begin", "Begin Cal >");
 
       while(true) {
@@ -169,18 +201,32 @@ void setup() {
       }
 
       //If the joystick is not calibrated calibrate it
-      if(!rightJoyStick.checkSettings()) {
+      if(!rightJoyStick.checkSettings() || calibrate) {
         Serial.println("\nThe right joystick has invalid settings and will need to be recalibrated. Starting calibration utility...");
         rightJoyStick.calibrate(leftLCD, rightLCD);
       }
+    }
+
+    if(!controlPanel.checkSettings() || calibrate) {
+      leftLCD.clear();
+      rightLCD.clear();
+      leftLCD.showError("Control Panel", "Calibration", "is required");
+      rightLCD.showText("Press to begin", "Begin Cal >");
+      while(true) {
+        bool leave = false;
+        for(int i = 0; i < TOTAL_COLS; i++) {
+          if(controlPanel.isButtonsPressed().buttonStates[3][i]){leave = true;}
+        }
+        if(leave){break;}
+      }
 
       //If the control panel is not calibrated calibrate it
-      if(!controlPanel.checkSettings()) {
+      if(!controlPanel.checkSettings() || calibrate) {
         Serial.println("\nControl panel has invalid settings and will need to be recalibrated. Starting calibration utility...");
         controlPanel.calibrate(leftLCD, rightLCD);
       }
-    } 
-
+    }
+    #endif
     //Connect to network
     rightLCD.clear();
     rightLCD.showText("Network", "Connecting", "", "", FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
@@ -222,17 +268,6 @@ void setup() {
     rightLCD.clear();
 }
 
-//Send a command out to the serial
-void sendDataToSerial(CommandType type, int command, int value, int dataSize = 0, int *data = nullptr) {
-  Serial1.write(type);
-  Serial1.write(command);
-  Serial1.write(value);
-  Serial1.write(dataSize);
-  for(int i = 0; i < networkHandler.dataSize(); i++) {
-    Serial1.write(data[i]);
-  }
-}
-
 //Send a zoom to the lanc -8 to 8
 void sendZoom(int speed) {
   if(speed < -8){speed = -8;}
@@ -252,19 +287,22 @@ void sendAutoFocus() {
   sendDataToSerial(CommandType::Lanc, LancCommand::AutoFocus, 0);
 }
 
-
 int prevZoom = 0;
+unsigned long zoomTimeout = 0;
 void processJoyStick() {
   if(networkMovingSpeed == true){return;}
   float acceleration = 100.0;
   float globalSpeed = controlPanel.getPotPercentage(ControlPanel::Pot::Right);
   float xSpeed = (rightJoyStick.getPercentage(JoyStick::Axis::X) / 100.0) * (globalSpeed / 100.0);
   float ySpeed = (rightJoyStick.getPercentage(JoyStick::Axis::Y) / 100.0) * (globalSpeed / 100.0);
-  int zoom = ((rightJoyStick.getPercentage(JoyStick::Axis::Z) / 80.0) * (controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0)) * 8;
+  float zoomJoy = (rightJoyStick.getPercentage(JoyStick::Axis::Z) / 100.0) * 8.0;
+  float zoomSpeed = (controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0) * 8.0;
+  int zoom = ((zoomJoy / 8.0) * ((zoomSpeed + 1.0) / 7.0)) * 8;
   head.moveXY(xSpeed * 100, ySpeed * 100, 100.0);
   if(zoom != prevZoom) {
     prevZoom = zoom;
     sendZoom(zoom);
+    //zoomTimeout = millis() + 500;
   }
 }
 
@@ -338,6 +376,7 @@ void checkButtons() {
     // Focus In
     if(controlPanel.isButtonsPressed().buttonStates[3][0]) {
       sendFocus(0);
+      delay(200);
     }
 
     // 0 0   0 0
@@ -346,6 +385,7 @@ void checkButtons() {
     // Focus Out
     if(controlPanel.isButtonsPressed().buttonStates[3][1]) {
       sendFocus(1);
+      delay(200);
     }
 
     // 0 0   0 0
@@ -354,6 +394,7 @@ void checkButtons() {
     // Focus Auto
     if(controlPanel.isButtonsPressed().buttonStates[3][2]) {
       sendAutoFocus();
+      delay(200);
     }
 }
 
@@ -460,14 +501,14 @@ int checkNetwork() {
 
 //Main loop
 void loop() {
-    blinkDebugLed();
-
-    //Send incoming serial debug messages to this serial monitor
-    if(Serial1.available()) {
-        while(Serial1.available()) {
-          Serial.write(Serial1.read());
-        }
+    if(showDebugLcd) {
+      while(true) {
+        showDebugLCD();
+      }
     }
+
+
+    blinkDebugLed();
 
     if(head.isMoving()) {
         if(controlPanel.isStopButtonPressed()) {
@@ -492,7 +533,7 @@ void loop() {
       //Update the LCDs
       // if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
 
-      leftLCD.setTextToShow("Zoom Speed", (String)(int)((controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0) * 8), "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
+      leftLCD.setTextToShow("Zoom Speed", (String)(int)(((controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0) * 7) + 1), "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
       rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", errorMessages[1], errorMessages[0], FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
       leftLCD.update();
       rightLCD.update();

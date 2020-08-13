@@ -40,7 +40,7 @@ LCD rightLCD(0x3D);
 #include "networkHandler.cpp"
 
 //JoyStick Settings
-JoyStick rightJoyStick(A5, A6, A7, true, true, true, RIGHTJOY_MEM_ADDR);
+JoyStick rightJoyStick(A5, A6, A7, 20, 20, 10, true, true, true, RIGHTJOY_MEM_ADDR);
 
 //Control panel settings
 ControlPanel controlPanel(22, A0, A1, CONTROLPANEL_MEM_ADDR);
@@ -55,6 +55,5 @@ Head head(xStepper, yStepper);
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress ip(10, 4, 10, 33);
 NetworkHandler networkHandler(0, 3204, 3032, "tricaster", mac, ip);
-//NetworkHandler networkHandler(0, 3204, 3032, "tricaster", mac);
 
 #endif

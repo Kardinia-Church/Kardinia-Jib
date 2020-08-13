@@ -119,6 +119,7 @@ class LCD {
 
     //Show text
     void showText(String line1="", String line2="", String line3="", String line4="") {
+        clear();
         _currentLine = 0;
         _yPos = 0;
         setTextToShow(line1, line2, line3, line4, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
@@ -127,6 +128,7 @@ class LCD {
 
     //Show text
     void showText(String line1, String line2, String line3, String line4, int fontSize1, int fontSize2, int fontSize3, int fontSize4) {
+        clear();
         _currentLine = 0;
         _yPos = 0;
         setTextToShow(line1, line2, line3, line4, fontSize1, fontSize2, fontSize3, fontSize4);
@@ -135,6 +137,7 @@ class LCD {
 
     //Show an error
     void showError(String errorLine1="Unknown", String errorLine2="", String errorLine3="") {
+        clear();
         _currentLine = 0;
         _yPos = 0;
         setTextToShow("Error!", errorLine1, errorLine2, errorLine3, FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
