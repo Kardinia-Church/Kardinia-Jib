@@ -21,7 +21,6 @@ bool showDebugLcd = false;
 //Send a command out to the serial
 bool waitingResponseFromLanc = false;
 void sendDataToSerial(CommandType type, int command, int value, int dataSize = 0, int *data = nullptr) {
-  waitingResponseFromLanc = true;
   Serial1.write(type);
   Serial1.write(command);
   Serial1.write(value);
@@ -57,11 +56,13 @@ void blinkDebugLed() {
     //Ping lanc cpu for state
     if(digitalRead(DEBUG_LED)) {
       if(!waitingResponseFromLanc) {
+        waitingResponseFromLanc = true;
         sendDataToSerial(CommandType::Control, ControlCommand::Ping, 0, 0);
         removeErrorMessage("Lanc Error");
       }
       else {
         //Cannot communicate
+        Serial.println("Lanc did not respond");
         addErrorMessage("Lanc Error");
       }
     }
@@ -492,8 +493,8 @@ void processNetwork() {
 unsigned long nextCheck = 0;
 int checkNetwork() {
   if(nextCheck < millis()) {
-    nextCheck = millis() + 30000; //Check every 60 seconds
-    return networkHandler.serverConnected() ? 2 : 1;
+    nextCheck = millis() + 30000;
+    return networkHandler.serverConnected() ? 1 : 2;
   }
 
   return 0;
@@ -507,6 +508,8 @@ void loop() {
       }
     }
 
+    //When the lanc responds remove the error if it has one
+    if(Serial1.available() && Serial1.read() == '\n'){waitingResponseFromLanc = false;}
 
     blinkDebugLed();
 
@@ -530,9 +533,12 @@ void loop() {
     }
     else {
       //If there is no movement
-      //Update the LCDs
-      // if(checkNetwork() == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(checkNetwork() != 0){removeErrorMessage("Server error");}
 
+      //Check for network errors
+      int networkState = checkNetwork();
+      if(networkState == 2) {Serial.println("Server did not respond"); addErrorMessage("Server error");}else if(networkState != 0){Serial.println("Server responded"); removeErrorMessage("Server error");}
+
+      //Update the LCDs
       leftLCD.setTextToShow("Zoom Speed", (String)(int)(((controlPanel.getPotPercentage(ControlPanel::Pot::Left) / 100.0) * 7) + 1), "", "", FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
       rightLCD.setTextToShow("XY Speed", (String)(int)controlPanel.getPotPercentage(ControlPanel::Pot::Right) + "%", errorMessages[1], errorMessages[0], FONT_SIZE_MEDIUM, FONT_SIZE_MEDIUM, FONT_SIZE_SMALL, FONT_SIZE_SMALL);
       leftLCD.update();
